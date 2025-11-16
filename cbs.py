@@ -2,6 +2,7 @@ import time as timer
 import heapq
 import random
 from single_agent_planner import compute_heuristics, a_star, get_location, get_sum_of_cost
+from mpaf_solver import MAPFSolver
 
 
 # gets a list of all agents that violate a passed positive constraint
@@ -169,7 +170,7 @@ def disjoint_splitting(collision):
               f"{len( collision[ "loc" ] )}, {collision[ "loc" ]}" )
 
 
-class CBSSolver(object):
+class CBSSolver(MAPFSolver):
     """The high-level search of CBS."""
 
     def __init__(self, my_map, starts, goals):
@@ -178,14 +179,10 @@ class CBSSolver(object):
         goals       - [(x1, y1), (x2, y2), ...] list of goal locations
         """
 
-        self.my_map = my_map
-        self.starts = starts
-        self.goals = goals
-        self.num_of_agents = len(goals)
+        super().__init__(my_map, starts, goals)
 
         self.num_of_generated = 0
         self.num_of_expanded = 0
-        self.CPU_time = 0
 
         self.open_list = []
 
@@ -252,7 +249,7 @@ class CBSSolver(object):
             self.push_node( new_node )
 
 
-    def find_solution(self, disjoint=True):
+    def find_solution(self):
         """ Finds paths for all agents from their start locations to their goal locations
 
         disjoint    - use disjoint splitting or not
@@ -311,18 +308,18 @@ class CBSSolver(object):
 
             # generates a node for the first collision
             collision = node[ "collisions" ][ 0 ]
-            self.generate_nodes( collision, node, disjoint=disjoint )
+            self.generate_nodes( collision, node )
             
 
-        self.print_results(best_node)
+        self.print_results(best_node[ "paths"] )
         return best_node['paths']
 
 
-    def print_results(self, node):
+    """def print_results(self, node):
         print("\n Found a solution! \n")
         CPU_time = timer.time() - self.start_time
         print("CPU time (s):    {:.2f}".format(CPU_time))
         print("Sum of costs:    {}".format(get_sum_of_cost(node['paths'])))
         print("Expanded nodes:  {}".format(self.num_of_expanded))
         print("Generated nodes: {}".format(self.num_of_generated))
-        print( "proposed paths: {}".format( node[ "paths" ] ) )
+        print( "proposed paths: {}".format( node[ "paths" ] ) )"""
