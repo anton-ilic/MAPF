@@ -8,19 +8,27 @@ from cbs import CBSSolver
 
 Colors = ['green', 'blue', 'orange']
 
+# run duration in seconds
+DURATION = 120
+
 
 class Animation:
-    def __init__(self, my_map, starts, goals):
+    def __init__(self, my_map, starts, dropoffs, solver, pickup=None):
         self.my_map = np.flip(np.transpose(my_map), 1)
+
+        # stores the start and dropoff points
         self.starts = []
         for start in starts:
-            self.starts.append((start[1], len(self.my_map[0]) - 1 - start[0]))
-        self.goals = []
-        for goal in goals:
-            self.goals.append((goal[1], len(self.my_map[0]) - 1 - goal[0]))
+            self.starts.append(self.convertToAnimationSpace(start))
+        self.dropoffs = []
+        for dropoff in dropoffs:
+            self.dropoffs.append(self.convertToAnimationSpace(dropoff))
+
+        # stores the pickup point
+        self.pickup = pickup
 
         # calculates the paths needed for the current iteration
-        solver = CBSSolver( my_map, starts, goals )
+        self.solver = solver
         paths = solver.find_solution()
 
         # stores the paths in the animation class
@@ -30,10 +38,11 @@ class Animation:
                 self.paths.append([])
                 for loc in path:
                     # converts paths to animation space
-                    self.paths[-1].append((loc[1], len(self.my_map[0]) - 1 - loc[0]))
+                    self.paths[-1].append(self.convertToAnimationSpace(loc))
 
         aspect = len(self.my_map) / len(self.my_map[0])
 
+        # initializes the figure
         self.fig = plt.figure(frameon=False, figsize=(4 * aspect, 4))
         self.ax = self.fig.add_subplot(111, aspect='equal')
         self.fig.subplots_adjust(left=0, right=1, bottom=0, top=1, wspace=None, hspace=None)
@@ -60,10 +69,18 @@ class Animation:
 
         # create agents:
         self.T = 0
-        # draw goals first
-        for i, goal in enumerate(self.goals):
-            self.patches.append(Rectangle((goal[0] - 0.25, goal[1] - 0.25), 0.5, 0.5, facecolor=Colors[i % len(Colors)],
+        # draw dropoffs first
+        for i, dropoff in enumerate(self.dropoffs):
+            self.patches.append(Rectangle((dropoff[0] - 0.25, dropoff[1] - 0.25), 0.5, 0.5,
+                                          facecolor=Colors[i % len(Colors)],
                                           edgecolor='black', alpha=0.5))
+                                          
+            # adds a text label for which dropoff point this is
+            dropoffText = self.ax.text( dropoff[0], dropoff[1], str(i) )
+            dropoffText.set_horizontalalignment( 'center' )
+            dropoffText.set_verticalalignment( 'center' )
+            self.artists.append(dropoffText)
+        # creates the agents
         for i in range(len(self.paths)):
             name = str(i)
             self.agents[i] = Circle((starts[i][0], starts[i][1]), 0.3, facecolor=Colors[i % len(Colors)],
@@ -78,9 +95,12 @@ class Animation:
 
         self.animation = animation.FuncAnimation(self.fig, self.animate_func,
                                                  init_func=self.init_func,
-                                                 frames=int(self.T + 1) * 10,
+                                                 frames=DURATION * 10,
                                                  interval=100,
                                                  blit=True)
+        
+    def convertToAnimationSpace(self, pos):
+        return (pos[1], len(self.my_map[0]) - 1 - pos[0])
 
     def save(self, file_name, speed):
         self.animation.save(

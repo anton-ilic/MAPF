@@ -3,7 +3,7 @@ import argparse
 import glob
 from pathlib import Path
 from visualize import Animation
-from single_agent_planner import get_sum_of_cost
+from individual import IndivSolver
 
 SOLVER = "CBS"
 
@@ -121,15 +121,20 @@ if __name__ == '__main__':
         else:
             raise RuntimeError("Unknown solver!")"""
         
+        if args.solver == "IND":
+            print("***Run Independent***")
+            solver = IndivSolver( my_map, starts, [pickup] * len(starts) )
+        else:
+            raise RuntimeError( "Unknown solver!!!" )
+        
 
 
         """cost = get_sum_of_cost(paths)
         result_file.write("{},{}\n".format(file, cost))"""
 
 
-        """if not args.batch:
-            print("***Test paths on a simulation***")
-            animation = Animation(my_map, starts, goals)
-            # animation.save("output.mp4", 1.0)
-            animation.show()"""
+        print("***Test paths on a simulation***")
+        animation = Animation(my_map, starts, dropoffs, solver, pickup=pickup )
+        # animation.save("output.mp4", 1.0)
+        animation.show()
     #result_file.close()
