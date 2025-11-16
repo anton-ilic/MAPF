@@ -3,8 +3,6 @@ import argparse
 import glob
 from pathlib import Path
 from cbs import CBSSolver
-from independent import IndependentSolver
-from prioritized import PrioritizedPlanningSolver
 from visualize import Animation
 from single_agent_planner import get_sum_of_cost
 
@@ -91,7 +89,7 @@ if __name__ == '__main__':
         my_map, starts, goals = import_mapf_instance(file)
         print_mapf_instance(my_map, starts, goals)
 
-        if args.solver == "CBS":
+        """if args.solver == "CBS":
             print("***Run CBS***")
             cbs = CBSSolver(my_map, starts, goals)
             paths = cbs.find_solution(args.disjoint)
@@ -104,15 +102,17 @@ if __name__ == '__main__':
             solver = PrioritizedPlanningSolver(my_map, starts, goals)
             paths = solver.find_solution()
         else:
-            raise RuntimeError("Unknown solver!")
+            raise RuntimeError("Unknown solver!")"""
+        
 
-        cost = get_sum_of_cost(paths)
-        result_file.write("{},{}\n".format(file, cost))
+
+        """cost = get_sum_of_cost(paths)
+        result_file.write("{},{}\n".format(file, cost))"""
 
 
         if not args.batch:
             print("***Test paths on a simulation***")
-            animation = Animation(my_map, starts, goals, paths)
+            animation = Animation(my_map, starts, goals)
             # animation.save("output.mp4", 1.0)
             animation.show()
     result_file.close()

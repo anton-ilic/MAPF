@@ -4,11 +4,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation
 
+from cbs import CBSSolver
+
 Colors = ['green', 'blue', 'orange']
 
 
 class Animation:
-    def __init__(self, my_map, starts, goals, paths):
+    def __init__(self, my_map, starts, goals):
         self.my_map = np.flip(np.transpose(my_map), 1)
         self.starts = []
         for start in starts:
@@ -16,11 +18,18 @@ class Animation:
         self.goals = []
         for goal in goals:
             self.goals.append((goal[1], len(self.my_map[0]) - 1 - goal[0]))
+
+        # calculates the paths needed for the current iteration
+        solver = CBSSolver( my_map, starts, goals )
+        paths = solver.find_solution()
+
+        # stores the paths in the animation class
         self.paths = []
         if paths:
             for path in paths:
                 self.paths.append([])
                 for loc in path:
+                    # converts paths to animation space
                     self.paths[-1].append((loc[1], len(self.my_map[0]) - 1 - loc[0]))
 
         aspect = len(self.my_map) / len(self.my_map[0])
