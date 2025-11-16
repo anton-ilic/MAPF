@@ -134,7 +134,8 @@ if __name__ == '__main__':
 
 
         print("***Test paths on a simulation***")
-        animation = Animation(my_map, starts, dropoffs, solver, pickup=pickup )
+        animation = Animation(my_map, starts, dropoffs, solver,
+                              pickup=pickup, sequence=sequence )
         # animation.save("output.mp4", 1.0)
         animation.show()
     #result_file.close()

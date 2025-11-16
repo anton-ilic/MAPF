@@ -3,6 +3,7 @@ from matplotlib.patches import Circle, Rectangle
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation
+from mpaf_solver import MAPFSolver
 
 from cbs import CBSSolver
 
@@ -13,7 +14,8 @@ DURATION = 120
 
 
 class Animation:
-    def __init__(self, my_map, starts, dropoffs, solver, pickup=None):
+    def __init__(self, my_map, starts, dropoffs, solver:MAPFSolver,
+                 pickup=None, sequence=[]):
         self.my_map = np.flip(np.transpose(my_map), 1)
 
         # stores the start and dropoff points
@@ -25,20 +27,20 @@ class Animation:
             self.dropoffs.append(self.convertToAnimationSpace(dropoff))
 
         # stores the pickup point
-        self.pickup = pickup
+        if pickup is not None:
+            self.pickup = self.convertToAnimationSpace( pickup )
+        else:
+            self.pickup = None
+
+        self.sequence = sequence
 
         # calculates the paths needed for the current iteration
         self.solver = solver
         paths = solver.find_solution()
 
-        # stores the paths in the animation class
-        self.paths = []
-        if paths:
-            for path in paths:
-                self.paths.append([])
-                for loc in path:
-                    # converts paths to animation space
-                    self.paths[-1].append(self.convertToAnimationSpace(loc))
+        self.currentPackage = [None] * len(starts)
+
+        self.installPaths( paths )
 
         aspect = len(self.my_map) / len(self.my_map[0])
 
@@ -101,6 +103,19 @@ class Animation:
         
     def convertToAnimationSpace(self, pos):
         return (pos[1], len(self.my_map[0]) - 1 - pos[0])
+    
+    def convertToSearchSpace(self, pos):
+        return (len(self.my_map[0]) - 1 - pos[1], pos[0])
+    
+    def installPaths(self, paths):
+         # stores the paths in the animation class
+        self.paths = []
+        if paths:
+            for path in paths:
+                self.paths.append([])
+                for loc in path:
+                    # converts paths to animation space
+                    self.paths[-1].append(self.convertToAnimationSpace(loc))
 
     def save(self, file_name, speed):
         self.animation.save(
@@ -129,6 +144,38 @@ class Animation:
         # reset all colors
         for _, agent in self.agents.items():
             agent.set_facecolor(agent.original_face_color)
+
+        # checking for even timesteps if the agents goal should be updated
+        if t % 10 == 0:
+            step = int(t / 10)
+            if self.pickup is not None:
+                for a in range(len(self.paths)):
+                    if self.currentPackage[a] is None:
+                        if self.agents[a].center == self.pickup:
+
+                            # agent should pick up package and go to its dropoff point
+                            if len( self.sequence ) > 0:
+                                self.currentPackage[a] = self.sequence.pop( 0 )
+                                newGoal = self.dropoffs[ self.currentPackage[ a ] ]
+                            else:
+                                newGoal = self.starts[a]
+                            newGoal = self.convertToSearchSpace( newGoal )
+                            newPaths = self.solver.update_goal(a, newGoal, step + 1)
+                            self.installPaths(newPaths)
+
+                    else:
+                        if self.agents[a].center == self.dropoffs[ self.currentPackage[ a ] ]:
+
+                            # agent should drop off package and go to pickup point
+                            self.currentPackage[a] = None
+                            if len(self.sequence) > 0:
+                                newGoal = self.pickup
+                            else:
+                                newGoal = self.starts[a]
+                            newGoal = self.convertToSearchSpace( newGoal )
+                            newPaths = self.solver.update_goal(a, newGoal, step + 1)
+                            self.installPaths(newPaths)
+
 
         # check drive-drive collisions
         agents_array = [agent for _, agent in self.agents.items()]
