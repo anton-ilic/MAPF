@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-from matplotlib.patches import Circle, Rectangle
+from matplotlib.patches import Circle, Rectangle, Polygon
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation
 from mpaf_solver import MAPFSolver
-
-from cbs import CBSSolver
 
 Colors = ['green', 'blue', 'orange']
 
@@ -71,6 +69,28 @@ class Animation:
 
         # create agents:
         self.T = 0
+        
+        # adds the pick up point to the animation
+        if pickup is not None:
+            self.patches.append( Polygon([
+                                            (self.pickup[0] - 0.25, self.pickup[1] - 0.05),
+                                            (self.pickup[0] - 0.05, self.pickup[1] - 0.05),
+                                            (self.pickup[0] - 0.05, self.pickup[1] - 0.25),
+                                            (self.pickup[0] + 0.05, self.pickup[1] - 0.25),
+                                            (self.pickup[0] + 0.05, self.pickup[1] - 0.05),
+                                            (self.pickup[0] + 0.25, self.pickup[1] - 0.05),
+                                            (self.pickup[0] + 0.25, self.pickup[1] + 0.05),
+                                            (self.pickup[0] + 0.05, self.pickup[1] + 0.05),
+                                            (self.pickup[0] + 0.05, self.pickup[1] + 0.25),
+                                            (self.pickup[0] - 0.05, self.pickup[1] + 0.25),
+                                            (self.pickup[0] - 0.05, self.pickup[1] + 0.05),
+                                            (self.pickup[0] - 0.25, self.pickup[1] + 0.05)
+                                         ], 
+                                         closed=True, 
+                                         edgecolor='black', 
+                                         facecolor='red',
+                                         alpha=0.5))
+
         # draw dropoffs first
         for i, dropoff in enumerate(self.dropoffs):
             self.patches.append(Rectangle((dropoff[0] - 0.25, dropoff[1] - 0.25), 0.5, 0.5,
