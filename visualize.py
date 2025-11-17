@@ -115,6 +115,14 @@ class Animation:
             self.agent_names[i].set_verticalalignment('center')
             self.artists.append(self.agent_names[i])
 
+        self.sequenceText = self.ax.text(0, 0, "temp_text")
+        self.sequenceText.set_horizontalalignment('left')
+        self.sequenceText.set_verticalalignment('center')
+
+        self.artists.append(self.sequenceText)
+
+        self.updateSequenceText()
+
         self.animation = animation.FuncAnimation(self.fig, self.animate_func,
                                                  init_func=self.init_func,
                                                  frames=DURATION * 10,
@@ -148,6 +156,12 @@ class Animation:
     def show():
         plt.show()
 
+    def updateSequenceText( self ):
+        if len( self.sequence ) > 0:
+            self.sequenceText.set_text( f"next item: {self.sequence[0]}" )
+        else:
+            self.sequenceText.set_text( "next item: None" )
+
     def init_func(self):
         for p in self.patches:
             self.ax.add_patch(p)
@@ -156,6 +170,7 @@ class Animation:
         return self.patches + self.artists
 
     def animate_func(self, t):
+
         for k in range(len(self.paths)):
             pos = self.get_state(t / 10, self.paths[k])
             self.agents[k].center = (pos[0], pos[1])
@@ -195,6 +210,7 @@ class Animation:
                             newGoal = self.convertToSearchSpace( newGoal )
                             newPaths = self.solver.update_goal(a, newGoal, step + 1)
                             self.installPaths(newPaths)
+            self.updateSequenceText()
 
 
         # check drive-drive collisions
