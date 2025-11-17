@@ -140,6 +140,8 @@ if __name__ == '__main__':
                               pickup=pickup, sequence=sequence )
         
         if args.save:
-            animation.save("result.mp4", 1.0)
-        animation.show()
+            animation.save("result.htm", 1.0)
+            print( "animation saved" )
+        else:
+            animation.show()
     #result_file.close()
