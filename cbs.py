@@ -181,10 +181,7 @@ class CBSSolver(MAPFSolver):
 
         super().__init__(my_map, starts, goals)
 
-        self.num_of_generated = 0
-        self.num_of_expanded = 0
-
-        self.open_list = []
+        self.paths = []
 
         # compute heuristics for the low-level search
         self.heuristics = []
@@ -248,14 +245,30 @@ class CBSSolver(MAPFSolver):
 
             self.push_node( new_node )
 
+    def calculate_colliding_paths(self):
+        self.paths = []
 
-    def find_solution(self):
+        for i in range(self.num_of_agents):
+            path = a_star(self.my_map, self.starts[i], self.goals[i], self.heuristics[i],
+                          i, [])
+            if path is None:
+                raise BaseException('No solutions')
+            self.paths.append(path)
+
+    def resolve_collisions(self):
         """ Finds paths for all agents from their start locations to their goal locations
+
+        requires a set of paths in place that may have collisions
 
         disjoint    - use disjoint splitting or not
         """
 
         self.start_time = timer.time()
+
+        self.num_of_generated = 0
+        self.num_of_expanded = 0
+
+        self.open_list = []
 
         # Generate the root node
         # constraints   - list of constraints
@@ -264,14 +277,15 @@ class CBSSolver(MAPFSolver):
         # collisions     - list of collisions in paths
         root = {'cost': 0,
                 'constraints': [],
-                'paths': [],
+                'paths': self.paths.copy(),
                 'collisions': []}
-        for i in range(self.num_of_agents):  # Find initial path for each agent
+        
+        """for i in range(self.num_of_agents):  # Find initial path for each agent
             path = a_star(self.my_map, self.starts[i], self.goals[i], self.heuristics[i],
                           i, root['constraints'])
             if path is None:
                 raise BaseException('No solutions')
-            root['paths'].append(path)
+            root['paths'].append(path)"""
 
         root['cost'] = get_sum_of_cost(root['paths'])
         root['collisions'] = detect_collisions(root['paths'])
@@ -312,7 +326,14 @@ class CBSSolver(MAPFSolver):
             
 
         self.print_results(best_node[ "paths"] )
-        return best_node['paths']
+        self.paths = best_node['paths'].copy()
+
+    def find_solution(self):
+        self.calculate_colliding_paths()
+
+        self.resolve_collisions()
+
+        return self.paths
 
 
     """def print_results(self, node):
