@@ -5,7 +5,7 @@ from pathlib import Path
 from visualize import Animation
 from individual import IndivSolver
 
-SOLVER = "CBS"
+SOLVER = "IND"
 
 def print_mapf_instance(my_map, starts, pickup, dropoffs):
     print('Start locations')
@@ -94,6 +94,8 @@ if __name__ == '__main__':
                         help='The name of the instance file(s)')
     parser.add_argument('--solver', type=str, default=SOLVER,
                         help='The solver to use (one of: {CBS,Independent,Prioritized}), defaults to ' + str(SOLVER))
+    parser.add_argument( '--save', type=bool, default=False,
+                         help="whether or not to save the animation. animation will be saved as result.mp4" )
 
     args = parser.parse_args()
 
@@ -136,6 +138,8 @@ if __name__ == '__main__':
         print("***Test paths on a simulation***")
         animation = Animation(my_map, starts, dropoffs, solver,
                               pickup=pickup, sequence=sequence )
-        # animation.save("output.mp4", 1.0)
+        
+        if args.save:
+            animation.save("result.mp4", 1.0)
         animation.show()
     #result_file.close()
