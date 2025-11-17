@@ -334,6 +334,40 @@ class CBSSolver(MAPFSolver):
         self.resolve_collisions()
 
         return self.paths
+    
+    def update_goal(self, agent, goal, timestep):
+        self.goals[ agent ] = goal
+
+        # re-calcuates the heuristic to use the new goal
+        self.heuristics[ agent ] = compute_heuristics( self.my_map, goal )
+
+        agentPath = []
+        if len(self.paths) > agent:
+            agentPath = self.paths[ agent ]
+
+        start = self.starts[agent]
+
+        if agentPath != []:
+            if ( len(agentPath) > timestep ):
+                # uses timestep location as start location
+                start = agentPath[ timestep ]
+                # cuts agent path to timestep length
+                agentPath = agentPath[:timestep]
+            else:
+                start = agentPath[ -1 ]
+
+        # calculates a new path
+        newPath = a_star(self.my_map, start, goal, self.heuristics[ agent ],
+                         agent, [] )
+        
+        # adds it to the current path
+        agentPath.extend(newPath)
+
+        self.paths[agent] = agentPath
+
+        self.resolve_collisions()
+
+        return self.paths
 
 
     """def print_results(self, node):

@@ -4,6 +4,7 @@ import glob
 from pathlib import Path
 from visualize import Animation
 from individual import IndivSolver
+from cbs import CBSSolver
 
 SOLVER = "IND"
 
@@ -126,6 +127,9 @@ if __name__ == '__main__':
         if args.solver == "IND":
             print("***Run Independent***")
             solver = IndivSolver( my_map, starts, [pickup] * len(starts) )
+        elif args.solver == "CBS":
+            print( "***Run CBS***" )
+            solver = CBSSolver( my_map, starts, [pickup] * len(starts) )
         else:
             raise RuntimeError( "Unknown solver!!!" )
         
