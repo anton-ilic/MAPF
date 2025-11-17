@@ -94,8 +94,10 @@ def get_location(path, time):
         return path[0]
     elif time < len(path):
         return path[time]
-    else:
+    elif time < len(path) + 2:
         return path[-1]  # wait at the goal location
+    else:
+        None
 
 
 def get_path(goal_node):

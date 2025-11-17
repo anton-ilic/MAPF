@@ -38,18 +38,19 @@ def detect_collision(path1, path2):
         a1_loc = get_location( path1, i )
         a2_loc = get_location( path2, i )
 
-        if a1_loc == a2_loc:
-            return {
-                "loc": [ a1_loc ],
-                "timestep": i
-            }
-        
-        if ( a1_loc == get_location( path2, i - 1 ) and
-             a2_loc == get_location( path1, i - 1 ) ):
-            return {
-                "loc": [ a1_loc, a2_loc ],
-                "timestep": i
-            }
+        if (a1_loc is not None and a2_loc is not None):
+            if a1_loc == a2_loc:
+                return {
+                    "loc": [ a1_loc ],
+                    "timestep": i
+                }
+            
+            if ( a1_loc == get_location( path2, i - 1 ) and
+                a2_loc == get_location( path1, i - 1 ) ):
+                return {
+                    "loc": [ a1_loc, a2_loc ],
+                    "timestep": i
+                }
     return None
 
 
