@@ -150,7 +150,7 @@ class Animation:
             file_name,
             fps=10 * speed,
             dpi=200,
-            savefig_kwargs={"pad_inches": 0, "bbox_inches": "tight"}, writer="html")
+            savefig_kwargs={"pad_inches": 0, "bbox_inches": "tight"}, writer="pillow")
 
     @staticmethod
     def show():
