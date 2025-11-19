@@ -200,22 +200,13 @@ class CBSSolver(MAPFSolver):
         self.num_of_expanded += 1
         return node
     
-    def generate_nodes( self, collision, parent_node, disjoint=True, timestep=0 ):
+    def generate_nodes( self, collision, parent_node, disjoint=True ):
         if disjoint:
             constr_split = disjoint_splitting( collision )
         else:
             constr_split = standard_splitting(collision)
-
-        print( f"split: {collision} into:\n{constr_split}")
         
         for constr in constr_split:
-            if constr[ "timestep" ] < timestep:
-                # skips this contraint as it occurs before the active timestep
-                print( "skipping" )
-                continue
-
-            print( f"parent constraints: {parent_node[ 'constraints' ]}" )
-
             # creates a new node with the parent constraints and the new constraint
             new_node = {
                 "cost": 0,
@@ -235,34 +226,11 @@ class CBSSolver(MAPFSolver):
 
             #calculate new paths with new constraints
             for agent in updated_agents:
-                path = new_node[ "paths" ][ agent ].copy()
-
-                while len( path ) < timestep + 1:
-                    path.append( path[-1] )
-
-                newStart = path[timestep]
-
-                path = path[:timestep]
-
-                modifed_constraints = []
-
-                # reduces all constraint timesteps by timestep to sync
-                for modConstr in new_node[ "constraints"] :
-                    newConstr = modConstr.copy()
-
-                    newConstr[ 'timestep' ] -= timestep
-
-                    modifed_constraints.append(newConstr)
-
-                print( f"modifedConstraints: {modifed_constraints}\nconstraints:{new_node[ 'constraints' ]}")
-
-                newpath = a_star( self.my_map, newStart, self.goals[agent], self.heuristics[agent],
-                               agent, modifed_constraints )
+                path = a_star( self.my_map, self.starts[agent], self.goals[agent], self.heuristics[agent],
+                               agent, new_node[ "constraints" ] )
                 
                 # checks if the path was calculated successfully
-                if newpath is not None:
-                    path.extend( newpath )
-                    
+                if path is not None:
                     new_node[ "paths" ][ agent ] = path
                 else:
                     skipped_path = True
@@ -270,7 +238,6 @@ class CBSSolver(MAPFSolver):
             if skipped_path:
                 # if a new path was not calculated for every agent, 
                 # don't add this node
-                print( "failed to calcuate paths for this constriant" )
                 continue
 
             # calculates cost and collisions on new path
@@ -289,6 +256,39 @@ class CBSSolver(MAPFSolver):
                 raise BaseException('No solutions')
             self.paths.append(path)
 
+    # used to handle a collision where both agents have the same goal and
+    # the collision occurs at that goal.
+    # in this case, its impossible for both agents to reach thier goals so
+    # we simple drop the end of the path of one agent and wait for the other to move
+    # to recalcuate this path
+    def handleSharedGoalCollision( self, collision, node ):
+        delayedAgent = collision[ "a1" ]
+        priorityAgent = collision[ "a2" ]
+
+        location = collision[ "loc" ][0]
+
+        if location != self.goals[ delayedAgent ] or location != self.goals[ priorityAgent ]:
+            raise RuntimeError( "handleSharedGoalCollision called on non shared goal collision" )
+        
+        new_node = {
+            "cost": 0,
+            "constraints": node[ "constraints" ].copy(),
+            "paths": node[ "paths" ].copy(),
+            "collisions": []
+        }
+
+        # removes the end of the path from the delayed agent
+        new_node[ "paths" ][ delayedAgent ].pop()
+
+        # calculates cost and collisions on new path
+        new_node[ "cost" ] = get_sum_of_cost( new_node[ "paths" ] )
+        new_node[ "collisions" ] = detect_collisions( new_node[ "paths" ] )
+
+        self.push_node( new_node )
+
+
+
+
     def resolve_collisions(self, timestep=0):
         """ Finds paths for all agents from their start locations to their goal locations
 
@@ -304,6 +304,21 @@ class CBSSolver(MAPFSolver):
 
         self.open_list = []
 
+        releventPaths = []
+
+        # copies starts to restore later
+        oldStarts = self.starts.copy()
+        self.starts = []
+
+        for i, path in enumerate( self.paths ):
+            # finds the portion of the path that hasn't been executed yet
+            if len(path) > timestep:
+                releventPaths.append( path[timestep:] )
+            else:
+                releventPaths.append( [ path[-1] ] )
+            # writes the new start location
+            self.starts.append( releventPaths[-1][0] )
+
         # Generate the root node
         # constraints   - list of constraints
         # paths         - list of paths, one for each agent
@@ -311,7 +326,7 @@ class CBSSolver(MAPFSolver):
         # collisions     - list of collisions in paths
         root = {'cost': 0,
                 'constraints': [],
-                'paths': self.paths.copy(),
+                'paths': releventPaths.copy(),
                 'collisions': []}
         
         """for i in range(self.num_of_agents):  # Find initial path for each agent
@@ -326,7 +341,7 @@ class CBSSolver(MAPFSolver):
         self.push_node(root)
 
         # Task 3.1: Testing
-        print(root['collisions'])
+        print( root['collisions'] )
 
         # Task 3.2: Testing
         for collision in root['collisions']:
@@ -354,14 +369,46 @@ class CBSSolver(MAPFSolver):
 
             print( f"node has {len( node[ 'collisions' ] )} collisions" )
             print( f"handling collision {node[ 'collisions' ][ 0 ]} with timestep {timestep}" )
+            print( f"paths: {node[ "paths" ]}")
+            print( f"goals: {self.goals}" )
 
             # generates a node for the first collision
             collision = node[ "collisions" ][ 0 ]
-            self.generate_nodes( collision, node, timestep=timestep )
-            
 
-        self.print_results(best_node[ "paths"] )
-        self.paths = best_node['paths'].copy()
+            agent1goal = self.goals[ collision[ 'a1' ] ]
+            agent2goal = self.goals[ collision[ 'a2' ] ]
+            collLoc = collision[ 'loc' ][0] if len(collision[ 'loc' ]) == 1 else None
+
+            print( f"a1Goal: {agent1goal}, a2Goal: {agent2goal}, collLoc: {collLoc}")
+
+            if collLoc is not None and collLoc == agent1goal and agent1goal == agent2goal:
+                print( "handling shared goal collision" )
+                self.handleSharedGoalCollision( collision, node )
+            else:
+                self.generate_nodes( collision, node )
+
+        # adds the found paths onto the existing paths
+        for i, path in enumerate( best_node[ "paths" ] ):
+            if len( self.paths[i] ) > timestep:
+                # replaces the back part of this path with the newly calculated path
+                partialPath = self.paths[i][:timestep]
+                partialPath.extend(path)
+
+                self.paths[i] = partialPath.copy()
+
+            else:
+
+                while len( self.paths[i] ) < timestep:
+                    # adds the last path position in to fill passed timesteps
+                    self.paths[i].append( self.paths[i][-1] )
+
+                # extends this path by whatever was added to it
+                self.paths[i].extend( path )
+
+        # restores the previous start values
+        self.starts = oldStarts.copy()
+
+        self.print_results( self.paths )
 
     def find_solution(self):
         self.calculate_colliding_paths()
