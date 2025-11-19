@@ -200,13 +200,22 @@ class CBSSolver(MAPFSolver):
         self.num_of_expanded += 1
         return node
     
-    def generate_nodes( self, collision, parent_node, disjoint=True ):
+    def generate_nodes( self, collision, parent_node, disjoint=True, timestep=0 ):
         if disjoint:
             constr_split = disjoint_splitting( collision )
         else:
             constr_split = standard_splitting(collision)
+
+        print( f"split: {collision} into:\n{constr_split}")
         
         for constr in constr_split:
+            if constr[ "timestep" ] < timestep:
+                # skips this contraint as it occurs before the active timestep
+                print( "skipping" )
+                continue
+
+            print( f"parent constraints: {parent_node[ 'constraints' ]}" )
+
             # creates a new node with the parent constraints and the new constraint
             new_node = {
                 "cost": 0,
@@ -226,11 +235,34 @@ class CBSSolver(MAPFSolver):
 
             #calculate new paths with new constraints
             for agent in updated_agents:
-                path = a_star( self.my_map, self.starts[agent], self.goals[agent], self.heuristics[agent],
-                               agent, new_node[ "constraints" ] )
+                path = new_node[ "paths" ][ agent ].copy()
+
+                while len( path ) < timestep + 1:
+                    path.append( path[-1] )
+
+                newStart = path[timestep]
+
+                path = path[:timestep]
+
+                modifed_constraints = []
+
+                # reduces all constraint timesteps by timestep to sync
+                for modConstr in new_node[ "constraints"] :
+                    newConstr = modConstr.copy()
+
+                    newConstr[ 'timestep' ] -= timestep
+
+                    modifed_constraints.append(newConstr)
+
+                print( f"modifedConstraints: {modifed_constraints}\nconstraints:{new_node[ 'constraints' ]}")
+
+                newpath = a_star( self.my_map, newStart, self.goals[agent], self.heuristics[agent],
+                               agent, modifed_constraints )
                 
                 # checks if the path was calculated successfully
-                if path is not None:
+                if newpath is not None:
+                    path.extend( newpath )
+                    
                     new_node[ "paths" ][ agent ] = path
                 else:
                     skipped_path = True
@@ -238,6 +270,7 @@ class CBSSolver(MAPFSolver):
             if skipped_path:
                 # if a new path was not calculated for every agent, 
                 # don't add this node
+                print( "failed to calcuate paths for this constriant" )
                 continue
 
             # calculates cost and collisions on new path
@@ -256,7 +289,7 @@ class CBSSolver(MAPFSolver):
                 raise BaseException('No solutions')
             self.paths.append(path)
 
-    def resolve_collisions(self):
+    def resolve_collisions(self, timestep=0):
         """ Finds paths for all agents from their start locations to their goal locations
 
         requires a set of paths in place that may have collisions
@@ -310,6 +343,7 @@ class CBSSolver(MAPFSolver):
         #           Ensure to create a copy of any objects that your child nodes might inherit
         best_node = None
         while self.open_list != []:
+            print( "handling nodes" )
             # handle node
             node = self.pop_node()
 
@@ -319,11 +353,11 @@ class CBSSolver(MAPFSolver):
                 break
 
             print( f"node has {len( node[ 'collisions' ] )} collisions" )
-            print( f"handling collision {node[ 'collisions' ][ 0 ]}" )
+            print( f"handling collision {node[ 'collisions' ][ 0 ]} with timestep {timestep}" )
 
             # generates a node for the first collision
             collision = node[ "collisions" ][ 0 ]
-            self.generate_nodes( collision, node )
+            self.generate_nodes( collision, node, timestep=timestep )
             
 
         self.print_results(best_node[ "paths"] )
@@ -366,7 +400,7 @@ class CBSSolver(MAPFSolver):
 
         self.paths[agent] = agentPath
 
-        self.resolve_collisions()
+        self.resolve_collisions(timestep=timestep)
 
         return self.paths
 
