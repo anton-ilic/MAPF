@@ -184,6 +184,9 @@ class CBSSolver(MAPFSolver):
 
         self.paths = []
 
+        # stores any agents that need new paths in a later update
+        self.pending_agents = []
+
         # compute heuristics for the low-level search
         self.heuristics = []
         for goal in self.goals:
@@ -279,6 +282,9 @@ class CBSSolver(MAPFSolver):
 
         # removes the end of the path from the delayed agent
         new_node[ "paths" ][ delayedAgent ].pop()
+
+        # marks the skipped agent to be updated at the next cycle
+        self.mark_agent_for_updates( delayedAgent )
 
         # calculates cost and collisions on new path
         new_node[ "cost" ] = get_sum_of_cost( new_node[ "paths" ] )
@@ -417,35 +423,50 @@ class CBSSolver(MAPFSolver):
 
         return self.paths
     
+    def mark_agent_for_updates( self, agent ):
+        if agent not in self.pending_agents:
+            self.pending_agents.append( agent )
+    
+    # calculates conflicting paths for all plending agents
+    def get_paths_for_pending_agents( self, timestep ):
+
+        for agent in self.pending_agents:
+            agentPath = []
+            if len(self.paths) > agent:
+                agentPath = self.paths[ agent ]
+
+            start = self.starts[agent]
+
+            if agentPath != []:
+                if ( len(agentPath) > timestep ):
+                    # uses timestep location as start location
+                    start = agentPath[ timestep ]
+                    # cuts agent path to timestep length
+                    agentPath = agentPath[:timestep]
+                else:
+                    start = agentPath[ -1 ]
+
+            # calculates a new path
+            newPath = a_star(self.my_map, start, self.goals[ agent ], self.heuristics[ agent ],
+                            agent, [] )
+            
+            # adds it to the current path
+            agentPath.extend(newPath)
+
+            self.paths[agent] = agentPath
+
+        self.pending_agents = []
+
+    
     def update_goal(self, agent, goal, timestep):
         self.goals[ agent ] = goal
 
         # re-calcuates the heuristic to use the new goal
         self.heuristics[ agent ] = compute_heuristics( self.my_map, goal )
 
-        agentPath = []
-        if len(self.paths) > agent:
-            agentPath = self.paths[ agent ]
+        self.mark_agent_for_updates( agent )
 
-        start = self.starts[agent]
-
-        if agentPath != []:
-            if ( len(agentPath) > timestep ):
-                # uses timestep location as start location
-                start = agentPath[ timestep ]
-                # cuts agent path to timestep length
-                agentPath = agentPath[:timestep]
-            else:
-                start = agentPath[ -1 ]
-
-        # calculates a new path
-        newPath = a_star(self.my_map, start, goal, self.heuristics[ agent ],
-                         agent, [] )
-        
-        # adds it to the current path
-        agentPath.extend(newPath)
-
-        self.paths[agent] = agentPath
+        self.get_paths_for_pending_agents( timestep )
 
         self.resolve_collisions(timestep=timestep)
 
