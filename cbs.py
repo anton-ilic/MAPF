@@ -194,12 +194,12 @@ class CBSSolver(MAPFSolver):
 
     def push_node(self, node):
         heapq.heappush(self.open_list, (node['cost'], len(node['collisions']), self.num_of_generated, node))
-        print("Generate node {}".format(self.num_of_generated))
+        # print("Generate node {}".format(self.num_of_generated))
         self.num_of_generated += 1
 
     def pop_node(self):
         _, _, id, node = heapq.heappop(self.open_list)
-        print("Expand node {}".format(id))
+        # print("Expand node {}".format(id))
         self.num_of_expanded += 1
         return node
     
@@ -346,13 +346,6 @@ class CBSSolver(MAPFSolver):
         root['collisions'] = detect_collisions(root['paths'])
         self.push_node(root)
 
-        # Task 3.1: Testing
-        print( root['collisions'] )
-
-        # Task 3.2: Testing
-        for collision in root['collisions']:
-            print( standard_splitting(collision) )
-
 
         ##############################
         # Task 3.3: High-Level Search
@@ -364,7 +357,7 @@ class CBSSolver(MAPFSolver):
         #           Ensure to create a copy of any objects that your child nodes might inherit
         best_node = None
         while self.open_list != []:
-            print( "handling nodes" )
+            # print( "handling nodes" )
             # handle node
             node = self.pop_node()
 
@@ -373,10 +366,10 @@ class CBSSolver(MAPFSolver):
                 print( "found best!!" )
                 break
 
-            print( f"node has {len( node[ 'collisions' ] )} collisions" )
-            print( f"handling collision {node[ 'collisions' ][ 0 ]} with timestep {timestep}" )
-            print( f"paths: {node[ "paths" ]}")
-            print( f"goals: {self.goals}" )
+            # print( f"node has {len( node[ 'collisions' ] )} collisions" )
+            # print( f"handling collision {node[ 'collisions' ][ 0 ]} with timestep {timestep}" )
+            # print( f"paths: {node[ "paths" ]}")
+            # print( f"goals: {self.goals}" )
 
             # generates a node for the first collision
             collision = node[ "collisions" ][ 0 ]
@@ -385,7 +378,7 @@ class CBSSolver(MAPFSolver):
             agent2goal = self.goals[ collision[ 'a2' ] ]
             collLoc = collision[ 'loc' ][0] if len(collision[ 'loc' ]) == 1 else None
 
-            print( f"a1Goal: {agent1goal}, a2Goal: {agent2goal}, collLoc: {collLoc}")
+            # print( f"a1Goal: {agent1goal}, a2Goal: {agent2goal}, collLoc: {collLoc}")
 
             if collLoc is not None and collLoc == agent1goal and agent1goal == agent2goal:
                 print( "handling shared goal collision" )
@@ -444,7 +437,14 @@ class CBSSolver(MAPFSolver):
                     # cuts agent path to timestep length
                     agentPath = agentPath[:timestep]
                 else:
+                    # lengthens the path to satisfy the timestep requirements
+                    while len( agentPath ) < timestep :
+                        agentPath.append( agentPath[ -1 ] )
                     start = agentPath[ -1 ]
+            else:
+                # lengthens the path to satisfy the timestep requirements
+                while len( agentPath ) < timestep:
+                    agentPath.append( start )
 
             # calculates a new path
             newPath = a_star(self.my_map, start, self.goals[ agent ], self.heuristics[ agent ],
