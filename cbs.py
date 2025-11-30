@@ -303,8 +303,6 @@ class CBSSolver(MAPFSolver):
         disjoint    - use disjoint splitting or not
         """
 
-        self.start_time = timer.time()
-
         self.num_of_generated = 0
         self.num_of_expanded = 0
 
@@ -407,12 +405,16 @@ class CBSSolver(MAPFSolver):
         # restores the previous start values
         self.starts = oldStarts.copy()
 
-        self.print_results( self.paths )
-
     def find_solution(self):
+
+        self.start_time = timer.time()
+
         self.calculate_colliding_paths()
 
         self.resolve_collisions()
+
+        print( "calculating all paths" )
+        self.print_results( self.paths )
 
         return self.paths
     
@@ -461,6 +463,8 @@ class CBSSolver(MAPFSolver):
     def update_goal(self, agent, goal, timestep):
         self.goals[ agent ] = goal
 
+        self.start_time = timer.time()
+
         # re-calcuates the heuristic to use the new goal
         self.heuristics[ agent ] = compute_heuristics( self.my_map, goal )
 
@@ -469,6 +473,9 @@ class CBSSolver(MAPFSolver):
         self.get_paths_for_pending_agents( timestep )
 
         self.resolve_collisions(timestep=timestep)
+
+        print( f"recalculating paths for agent {agent}" )
+        self.print_results( self.paths )
 
         return self.paths
 
