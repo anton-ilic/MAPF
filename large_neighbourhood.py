@@ -32,52 +32,6 @@ class LargeNeighbourhoodSolver(MAPFSolver):
         for goal in self.goals:
             self.heuristics.append(compute_heuristics(my_map, goal))
     
-    def generate_nodes( self, collision, parent_node, disjoint=True ):
-        if disjoint:
-            constr_split = disjoint_splitting( collision )
-        else:
-            constr_split = standard_splitting(collision)
-        
-        for constr in constr_split:
-            # creates a new node with the parent constraints and the new constraint
-            new_node = {
-                "cost": 0,
-                "constraints": parent_node[ "constraints" ].copy(),
-                "paths": parent_node[ "paths" ].copy(),
-                "collisions": []
-            }
-            new_node[ "constraints" ].append( constr )
-
-            # generates a list of all agents who need to have thier paths recalcuated
-            updated_agents = [ constr[ "agent" ] ]
-            if "positive" in constr and constr[ "positive" ]:
-                for agent in paths_violate_constraint( constr, new_node[ "paths" ] ):
-                    updated_agents.append( agent )
-
-            skipped_path = False
-
-            #calculate new paths with new constraints
-            for agent in updated_agents:
-                path = a_star( self.my_map, self.starts[agent], self.goals[agent], self.heuristics[agent],
-                               agent, new_node[ "constraints" ] )
-                
-                # checks if the path was calculated successfully
-                if path is not None:
-                    new_node[ "paths" ][ agent ] = path
-                else:
-                    skipped_path = True
-
-            if skipped_path:
-                # if a new path was not calculated for every agent, 
-                # don't add this node
-                continue
-
-            # calculates cost and collisions on new path
-            new_node[ "cost" ] = get_sum_of_cost( new_node[ "paths" ] )
-            new_node[ "collisions" ] = detect_collisions( new_node[ "paths" ] )
-
-            self.push_node( new_node )
-
     def calculate_colliding_paths(self):
         self.paths = []
 
@@ -87,39 +41,6 @@ class LargeNeighbourhoodSolver(MAPFSolver):
             if path is None:
                 raise BaseException('No solutions')
             self.paths.append(path)
-
-    # used to handle a collision where both agents have the same goal and
-    # the collision occurs at that goal.
-    # in this case, its impossible for both agents to reach thier goals so
-    # we simple drop the end of the path of one agent and wait for the other to move
-    # to recalcuate this path
-    def handleSharedGoalCollision( self, collision, node ):
-        delayedAgent = collision[ "a1" ]
-        priorityAgent = collision[ "a2" ]
-
-        location = collision[ "loc" ][0]
-
-        if location != self.goals[ delayedAgent ] or location != self.goals[ priorityAgent ]:
-            raise RuntimeError( "handleSharedGoalCollision called on non shared goal collision" )
-        
-        new_node = {
-            "cost": 0,
-            "constraints": node[ "constraints" ].copy(),
-            "paths": node[ "paths" ].copy(),
-            "collisions": []
-        }
-
-        # removes the end of the path from the delayed agent
-        new_node[ "paths" ][ delayedAgent ].pop()
-
-        # marks the skipped agent to be updated at the next cycle
-        self.mark_agent_for_updates( delayedAgent )
-
-        # calculates cost and collisions on new path
-        new_node[ "cost" ] = get_sum_of_cost( new_node[ "paths" ] )
-        new_node[ "collisions" ] = detect_collisions( new_node[ "paths" ] )
-
-        self.push_node( new_node )
 
 
 
