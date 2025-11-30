@@ -5,6 +5,7 @@ from pathlib import Path
 from visualize import Animation
 from individual import IndivSolver
 from cbs import CBSSolver
+from large_neighbourhood import LargeNeighbourhoodSolver
 
 SOLVER = "IND"
 
@@ -130,6 +131,9 @@ if __name__ == '__main__':
         elif args.solver == "CBS":
             print( "***Run CBS***" )
             solver = CBSSolver( my_map, starts, [pickup] * len(starts) )
+        elif args.solver == "LNS":
+            print( "***Run Large Neighbourhood Search***" )
+            solver = LargeNeighbourhoodSolver( my_map, starts, [pickup] * len(starts) )
         else:
             raise RuntimeError( "Unknown solver!!!" )
         
