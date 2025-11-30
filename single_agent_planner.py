@@ -249,13 +249,31 @@ def compare_nodes(n1, n2):
     return n1['g_val'] + n1['h_val'] < n2['g_val'] + n2['h_val']
 
 
-def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints):
+
+def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight):
     """ my_map      - binary obstacle map
         start_loc   - start position
         goal_loc    - goal position
         agent       - the agent that is being re-planned
         constraints - constraints defining where robot should or cannot go at each timestep
+        type - default, None (regular a star), 1: Weighted a-star with Weight
     """
+    pass
+
+#TODO: create a wrapper function, which takes any type of astar. Maybe use the original a_star header with TYPE=NONE defaulting to regular astar, if
+def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, search_type=None, weight=None):
+    """ my_map      - binary obstacle map
+        start_loc   - start position
+        goal_loc    - goal position
+        agent       - the agent that is being re-planned
+        constraints - constraints defining where robot should or cannot go at each timestep
+        type - default, None (regular a star), 1: Weighted a-star with Weight
+    """
+    
+    if search_type == 1:
+        return w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight)
+    elif search_type != None:
+        raise ValueError("Search type not defined ")
 
     ##############################
     # Task 1.1: Extend the A* search to search in the space-time domain
