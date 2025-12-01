@@ -87,9 +87,14 @@ class LargeNeighbourhoodSolver(MAPFSolver):
 
 
     def find_solution(self):
+        self.start_time = timer.time()
+
         self.calculate_colliding_paths()
 
         self.resolve_collisions()
+
+        print( f"recalculating paths for all agents" )
+        self.print_results( self.paths )
 
         return self.paths
     
@@ -138,6 +143,8 @@ class LargeNeighbourhoodSolver(MAPFSolver):
     def update_goal(self, agent, goal, timestep):
         self.goals[ agent ] = goal
 
+        self.start_time = timer.time()
+
         # re-calcuates the heuristic to use the new goal
         self.heuristics[ agent ] = compute_heuristics( self.my_map, goal )
 
@@ -146,6 +153,9 @@ class LargeNeighbourhoodSolver(MAPFSolver):
         self.get_paths_for_pending_agents( timestep )
 
         self.resolve_collisions(timestep=timestep)
+
+        print( f"recalculating paths for agent {agent}" )
+        self.print_results( self.paths )
 
         return self.paths
 
