@@ -56,12 +56,60 @@ class LargeNeighbourhoodSolver(MAPFSolver):
 
 
     def find_neighbourhood( self, collisions, neighbour_count ):
-        """
-        finds a subset of agents to generate new paths for
+        if self.num_of_agents <= neighbour_count:
+            # neighbourhood count includes all agents, return list of all agents
+            neighbour_count = self.num_of_agents
+            return list( range( self.num_of_agents ) )
 
-        must return a list of agent ID's that can be used as the neighbourhood 
-        """
-        pass
+        agents_in_collisions = []
+
+        # gets a list of all agents involved in a collision
+        for col in collisions:
+            col_agents = [ col[ 'a1' ], col[ 'a2' ] ]
+
+            for agent in col_agents:
+                if agent not in agents_in_collisions:
+                    agents_in_collisions.append( agent )
+
+        # randomly selects one agent involved in a collision to start the neighbourhood
+        path_agent = random.randint( 0, len( agents_in_collisions ) - 1)
+        neighbourhood = [ path_agent ]
+        checked_agents = []
+
+        while len( neighbourhood ) < neighbour_count:
+
+            path_agent = None
+
+            for agent in neighbourhood:
+                if agent not in checked_agents:
+                    # trys to find a another agent in the neighbourhood to check the paths of
+                    # to expand the neighbourhood
+                    path_agent = agent
+                    break
+
+            if path_agent is None:
+                # no suitable agents found in current neighbourhood, select random agent from remaining agents
+                remaining_agents = get_remaining_agents( self.num_of_agents, neighbourhood )
+                path_agent = random.choice( remaining_agents )
+                neighbourhood.append( path_agent )
+
+            for col in collisions:
+                if len( neighbourhood ) >= neighbour_count:
+                    # stop checking if neighbourhood is full
+                    break
+
+                # adds any agents involved in collisions with the current agent to the neighbourhood
+                if col[ 'a1' ] == path_agent and col[ 'a2' ] not in neighbourhood:
+                    neighbourhood.append( col[ 'a2' ] )
+                if col[ 'a2' ] == path_agent and col[ 'a1' ] not in neighbourhood:
+                    neighbourhood.append( col[ 'a1' ] )
+
+            # mark that this agents path has been checked and that all
+            # the agents it collides with are in the neighbourhood
+            checked_agents.append( path_agent )
+
+        # returns the found neighbourhood
+        return neighbourhood
 
     def recalculate_paths_for_neighbourhood( self, neighbourhood ):
         """
@@ -90,7 +138,9 @@ class LargeNeighbourhoodSolver(MAPFSolver):
 
             # finds a subset of agents to recalcuate paths for
             # identifiying the neighbourhood
-            neighbourhood = self.find_neighbourhood( collisions, 4 )
+            neighbourhood = self.find_neighbourhood( collisions, 3 )
+
+            print( f"testing output: \n\ncollisions: {collisions}\nneighbourhood:{neighbourhood}" )
 
             self.recalculate_paths_for_neighbourhood( neighbourhood )
 
