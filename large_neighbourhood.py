@@ -43,6 +43,23 @@ class LargeNeighbourhoodSolver(MAPFSolver):
             self.paths.append(path)
 
 
+    def find_neighbourhood( self, collisions, neighbour_count ):
+        """
+        finds a subset of agents to generate new paths for
+
+        must return a list of agent ID's that can be used as the neighbourhood 
+        """
+        pass
+
+    def recalculate_paths_for_neighbourhood( self, neighbourhood ):
+        """
+        recalculates a new set of paths for all agents in the neighbourhood
+
+        treats all paths not in the neighbourhood as a set of moving obstacles
+
+        if no paths are possible, leave paths as is
+        """
+        pass
 
 
     def resolve_collisions(self, timestep=0):
@@ -53,7 +70,22 @@ class LargeNeighbourhoodSolver(MAPFSolver):
         disjoint    - use disjoint splitting or not
         """
 
-        pass
+        # finds some set of collisions
+        collisions = detect_collisions( self.paths )
+
+        # loops until no collisions left in the list
+        while collisions != []:
+
+            # finds a subset of agents to recalcuate paths for
+            # identifiying the neighbourhood
+            neighbourhood = self.find_neighbourhood( collisions, 4 )
+
+            self.recalculate_paths_for_neighbourhood( neighbourhood )
+
+            # rechecks for collisions
+            collisions = detect_collisions( self.paths )
+
+
         # should implement later
 
     def find_solution(self):
