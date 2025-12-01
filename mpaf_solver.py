@@ -27,6 +27,6 @@ class MAPFSolver(object):
     def print_results(self, paths):
         print("\n Found a solution! \n")
         CPU_time = timer.time() - self.start_time
-        print("CPU time (s):    {:.2f}".format(CPU_time))
+        print("CPU time (s):    {:.6f}".format(CPU_time))
         print("Sum of costs:    {}".format(get_sum_of_cost(paths)))
         print( "proposed paths: {}".format( paths ) )

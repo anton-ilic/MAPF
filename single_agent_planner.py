@@ -248,7 +248,8 @@ def compare_nodes(n1, n2):
     """Return true is n1 is better than n2."""
     return n1['g_val'] + n1['h_val'] < n2['g_val'] + n2['h_val']
 
-
+def focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints):
+    pass
 
 def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight):
     """ my_map      - binary obstacle map
@@ -256,9 +257,108 @@ def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight):
         goal_loc    - goal position
         agent       - the agent that is being re-planned
         constraints - constraints defining where robot should or cannot go at each timestep
-        type - default, None (regular a star), 1: Weighted a-star with Weight
+        weight      - weight for heuristic
     """
-    pass
+    if weight < 1:
+        raise ValueError("Incorrect Weight added, weight should be >= 1")
+
+    ##############################
+    # Task 1.1: Extend the A* search to search in the space-time domain
+    #           rather than space domain, only.
+
+    # populating the constraints table
+    constraint_table = build_constraint_table( constraints, agent )
+
+    # counts the number of constraint in the constraint table
+    # also gets the largest timestep of a constraint affecting this agent
+    constraint_count = 0
+    last_constr_timestep = 0
+    for constr_list in constraint_table.values():
+        constraint_count = constraint_count + len( constr_list )
+        for constr in constr_list:
+            if constr[ "timestep" ] > last_constr_timestep:
+                last_constr_timestep = constr[ "timestep" ]
+                
+    # sets the maximum search tree depth the heuristic value of the starting location + the number of constraints
+    # since the heuristic is the dikstra search distance from this cell to the goal,
+    # with no constraints it will take this h steps to get to the goal
+    # this approach assumes that each constraint will require 1 additional timestep to handle
+    # however, in the case of constraints on the goal location, it may be required to search far after the goal has been reached
+    # for this reason, if the last constraint timestep is larger than the heuristic value, its used instead
+    max_steps = max( h_values[ start_loc ], last_constr_timestep ) + constraint_count
+
+    open_list = []
+    # keyed using cell location and timestep
+    # agents can be in the same location at different times
+    closed_list = dict()
+    earliest_goal_timestep = 0
+    h_value = h_values[start_loc]
+    root = {'loc': start_loc, 'g_val': 0, 'h_val': h_value, 'parent': None, 'time_step': 0 }
+    
+    # pushes the root to the open list with weighted f-value
+    heapq.heappush(open_list, (root['g_val'] + weight * root['h_val'], root['h_val'], root['loc'], root))
+    
+    # starts the closed list with the root node at time 0 in it
+    closed_list[(root['loc'], root['time_step'])] = root
+    
+    while len(open_list) > 0:
+        # gets the next best node to check
+        _, _, _, curr = heapq.heappop(open_list)
+
+        if curr[ 'time_step' ] > max_steps:
+            # skips this node if its too deep
+            continue
+
+        # updates the constraint table
+        propogate_constraints( curr[ 'time_step' ], constraint_table )
+        
+        #############################
+        # Task 1.4: Adjust the goal test condition to handle goal constraints
+        if ( curr['loc'] == goal_loc and not 
+             check_future_constraints( curr[ 'loc' ], curr[ 'time_step' ], 
+                                       constraint_table ) ):
+            # returns the path if the goal is found
+            return get_path(curr)
+            
+        for dir in range(5):
+            child_loc = move(curr['loc'], dir)
+
+            if ( child_loc[ 0 ] < 0 or child_loc[ 0 ] >= len( my_map ) or
+                 child_loc[ 1 ] < 0 or child_loc[ 1 ] >= len( my_map[ 0 ] ) ):
+                # location is not on map
+                continue
+
+            if my_map[child_loc[0]][child_loc[1]]:
+                # if new location is not in the map, try another
+                continue
+
+            if is_constrained(curr[ 'loc' ], child_loc, curr[ 'time_step' ] + 1, 
+                              constraint_table, agent ):
+                # new location is constrained, cannot visit
+                continue
+
+            if not check_can_make_constraints( child_loc, curr[ "time_step" ] + 1,
+                                               agent, constraint_table ):
+                # impossible to satisfy positive constraints from this location, skip
+                continue
+
+            child = {'loc': child_loc,
+                    'g_val': curr['g_val'] + 1,
+                    'h_val': h_values[child_loc],
+                    'parent': curr,
+                    'time_step': curr[ 'time_step' ] + 1 }
+            
+            if (child['loc'], child['time_step'] ) in closed_list:
+                existing_node = closed_list[(child['loc'], child['time_step'])]
+                # Compare using weighted f-value
+                if child['g_val'] + weight * child['h_val'] < existing_node['g_val'] + weight * existing_node['h_val']:
+                    closed_list[(child['loc'], child['time_step'])] = child
+                    heapq.heappush(open_list, (child['g_val'] + weight * child['h_val'], child['h_val'], child['loc'], child))
+            else:
+                closed_list[(child['loc'], child['time_step'])] = child
+                heapq.heappush(open_list, (child['g_val'] + weight * child['h_val'], child['h_val'], child['loc'], child))
+
+    return None  # Failed to find solutions
 
 #TODO: create a wrapper function, which takes any type of astar. Maybe use the original a_star header with TYPE=NONE defaulting to regular astar, if
 def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, search_type=None, weight=None):
@@ -267,11 +367,18 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, search_typ
         goal_loc    - goal position
         agent       - the agent that is being re-planned
         constraints - constraints defining where robot should or cannot go at each timestep
-        type - default, None (regular a star), 1: Weighted a-star with Weight
+        type - default: regular a-star, 1: Weighted a-star with weight w for heuristic 
+        weight - weight, f(n) = w h(n) + g(n)
     """
-    
+    # return w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, 5)
+
     if search_type == 1:
+        # Use weight if provided, otherwise default to 1.0
+        if not weight:
+            raise ValueError("Weight not defined for weighted a star")
         return w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight)
+    elif search_type == 2:
+        return focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints)
     elif search_type != None:
         raise ValueError("Search type not defined ")
 
