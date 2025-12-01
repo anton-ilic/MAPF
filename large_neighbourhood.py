@@ -86,8 +86,6 @@ class LargeNeighbourhoodSolver(MAPFSolver):
             collisions = detect_collisions( self.paths )
 
 
-        # should implement later
-
     def find_solution(self):
         self.calculate_colliding_paths()
 
