@@ -11,6 +11,18 @@ from cbs import (
 
 )
 
+def get_remaining_agents( num_of_agents, neighbourhood ):
+    """
+    gets the list of agents that are not in the neighbourhood
+    """
+    remaining_agents = []
+
+    for agent in range( num_of_agents ):
+        if agent not in neighbourhood:
+            remaining_agents.append( agent )
+
+    return remaining_agents
+
 class LargeNeighbourhoodSolver(MAPFSolver):
     """The high-level search of CBS."""
 
