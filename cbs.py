@@ -118,7 +118,7 @@ def standard_splitting(collision):
         ]
     else:
         raise BaseException( "unknown number of locations in collision: "
-              f"{len( collision[ "loc" ] )}, {collision[ "loc" ]}" )
+              f"{len( collision['loc'] )}, {collision['loc']}" )
 
 
 def disjoint_splitting(collision):
@@ -168,7 +168,7 @@ def disjoint_splitting(collision):
         ]
     else:
         raise BaseException( "unknown number of locations in collision: "
-              f"{len( collision[ "loc" ] )}, {collision[ "loc" ]}" )
+              f"{len( collision['loc'] )}, {collision['loc']}" )
 
 
 class CBSSolver(MAPFSolver):

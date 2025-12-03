@@ -119,7 +119,128 @@ class LargeNeighbourhoodSolver(MAPFSolver):
 
         if no paths are possible, leave paths as is
         """
-        pass
+        # Get all agents NOT in the neighbourhood
+        remaining_agents = get_remaining_agents( self.num_of_agents, neighbourhood )
+        
+        # Build constraints from the paths of agents outside the neighbourhood
+        # These agents' paths are treated as immovable obstacles
+        constraints = []
+        
+        for agent in remaining_agents:
+            path = self.paths[agent]
+            # Create vertex constraints for each timestep of this agent's path
+            for timestep, location in enumerate(path):
+                # Vertex constraint: no neighbourhood agent can be at this location at this time
+                constraints.append({
+                    'agent': -1,  # applies to all neighbourhood agents
+                    'loc': [location],
+                    'timestep': timestep
+                })
+                
+                # Edge constraint: prevent swapping positions
+                if timestep > 0:
+                    prev_location = path[timestep - 1]
+                    # Prevent neighbourhood agents from using this edge
+                    constraints.append({
+                        'agent': -1,
+                        'loc': [prev_location, location],
+                        'timestep': timestep
+                    })
+            
+            # Add goal constraints to prevent neighbourhood agents from occupying
+            # the final position after the path ends
+            if len(path) > 0:
+                final_location = path[-1]
+                final_timestep = len(path) - 1
+                # Extend constraint into the future
+                for t in range(final_timestep + 1, final_timestep + 100):
+                    constraints.append({
+                        'agent': -1,
+                        'loc': [final_location],
+                        'timestep': t,
+                        'goal': True
+                    })
+        
+        # Store old paths in case we need to revert
+        old_paths = {agent: self.paths[agent].copy() for agent in neighbourhood}
+        
+        # Try to compute new paths for each agent in the neighbourhood
+        # using prioritized planning (agents planned in order)
+        new_paths = {}
+        success = True
+        
+        for agent in neighbourhood:
+            # Collect constraints from:
+            # 1. Non-neighbourhood agents (already in constraints)
+            # 2. Already-planned neighbourhood agents (to avoid collisions within neighbourhood)
+            agent_constraints = []
+            
+            # Add constraints from non-neighbourhood agents
+            for constr in constraints:
+                agent_constraints.append({
+                    'agent': agent,
+                    'loc': constr['loc'],
+                    'timestep': constr['timestep'],
+                    'goal': constr.get('goal', False)
+                })
+            
+            # Add constraints from already-planned neighbourhood agents
+            for planned_agent in new_paths:
+                planned_path = new_paths[planned_agent]
+                for timestep, location in enumerate(planned_path):
+                    agent_constraints.append({
+                        'agent': agent,
+                        'loc': [location],
+                        'timestep': timestep
+                    })
+                    
+                    if timestep > 0:
+                        prev_location = planned_path[timestep - 1]
+                        agent_constraints.append({
+                            'agent': agent,
+                            'loc': [prev_location, location],
+                            'timestep': timestep
+                        })
+                
+                # Goal constraint for already-planned agents
+                if len(planned_path) > 0:
+                    final_location = planned_path[-1]
+                    final_timestep = len(planned_path) - 1
+                    for t in range(final_timestep + 1, final_timestep + 100):
+                        agent_constraints.append({
+                            'agent': agent,
+                            'loc': [final_location],
+                            'timestep': t,
+                            'goal': True
+                        })
+            
+            # Compute new path with A* using all constraints
+            new_path = a_star(
+                self.my_map,
+                self.starts[agent],
+                self.goals[agent],
+                self.heuristics[agent],
+                agent,
+                agent_constraints
+            )
+            
+            if new_path is None:
+                # Failed to find a path for this agent
+                success = False
+                break
+            
+            new_paths[agent] = new_path
+        
+        # If successful, update the paths; otherwise keep old paths
+        if success:
+            for agent in neighbourhood:
+                self.paths[agent] = new_paths[agent]
+            print(f"Successfully replanned neighbourhood: {neighbourhood}")
+        else:
+            # Revert to old paths
+            for agent in neighbourhood:
+                self.paths[agent] = old_paths[agent]
+            print(f"Failed to replan neighbourhood {neighbourhood}, keeping old paths")
 
 
     def resolve_collisions(self, timestep=0):
