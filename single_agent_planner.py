@@ -364,13 +364,14 @@ def focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints, weig
 
     return None
 
-def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight):
+def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight, goalDist=0):
     """ my_map      - binary obstacle map
         start_loc   - start position
         goal_loc    - goal position
         agent       - the agent that is being re-planned
         constraints - constraints defining where robot should or cannot go at each timestep
         weight      - weight for heuristic
+        goalDist    - the maximum allowed distance from the goal
     """
     if weight < 1:
         raise ValueError("Incorrect Weight added, weight should be >= 1")
@@ -427,11 +428,20 @@ def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight):
         
         #############################
         # Task 1.4: Adjust the goal test condition to handle goal constraints
-        if ( curr['loc'] == goal_loc and not 
-             check_future_constraints( curr[ 'loc' ], curr[ 'time_step' ], 
-                                       constraint_table ) ):
-            # returns the path if the goal is found
-            return get_path(curr)
+        if goalDist == 0:
+            if ( curr['loc'] == goal_loc and not 
+                check_future_constraints( curr[ 'loc' ], curr[ 'time_step' ], 
+                                        constraint_table ) ):
+                # returns the path if the goal is found
+                return get_path(curr)
+        else:
+            # print( "checking non-goal paths" )
+            if ( ( h_values[ curr[ 'loc' ] ] <= goalDist ) and not
+                 check_future_constraints( curr[ 'loc' ], curr[ 'time_step' ],
+                                           constraint_table ) ):
+                
+                # returns the path since it goes close enough to the goal
+                return get_path( curr )
             
         for dir in range(5):
             child_loc = move(curr['loc'], dir)
@@ -474,7 +484,7 @@ def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight):
     return None  # Failed to find solutions
 
 #TODO: create a wrapper function, which takes any type of astar. Maybe use the original a_star header with TYPE=NONE defaulting to regular astar, if
-def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, search_type=None, weight=None):
+def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, search_type=None, weight=None, goalDist=0):
     """ my_map      - binary obstacle map
         start_loc   - start position
         goal_loc    - goal position
@@ -482,6 +492,7 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, search_typ
         constraints - constraints defining where robot should or cannot go at each timestep
         type - default: regular a-star, 1: Weighted a-star with weight w for heuristic 
         weight - weight, f(n) = w h(n) + g(n)
+        goalDist - the maximum allowed distance from the goal. used for when the goal is occupied
     """
     # return w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, 5)
     # return focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints)
@@ -489,11 +500,13 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, search_typ
         # Use weight if provided, otherwise default to 1.0
         if not weight:
             raise ValueError("Weight not defined for weighted a star")
-        return w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight)
+        return w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight, goalDist)
     elif search_type == 2:
         return focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints)
     elif search_type != None:
         raise ValueError("Search type not defined ")
+    else:
+        return w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, 1, goalDist)
 
     ##############################
     # Task 1.1: Extend the A* search to search in the space-time domain
