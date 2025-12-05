@@ -199,6 +199,7 @@ class Animation:
                             if len( self.sequence ) > 0:
                                 self.currentPackage[a] = self.sequence.pop( 0 )
                                 newGoal = self.dropoffs[ self.currentPackage[ a ] ]
+                                self.agent_names[ a ].set_text( f"{a}({self.currentPackage[a]})")
                             else:
                                 newGoal = self.starts[a]
                             newGoal = self.convertToSearchSpace( newGoal )
@@ -214,6 +215,7 @@ class Animation:
                                 newGoal = self.pickup
                             else:
                                 newGoal = self.starts[a]
+                            self.agent_names[ a ].set_text( f"{a}")
                             newGoal = self.convertToSearchSpace( newGoal )
                             newPaths = self.solver.update_goal(a, newGoal, step + 1)
                             self.installPaths(newPaths)
