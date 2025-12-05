@@ -8,7 +8,7 @@ from mpaf_solver import MAPFSolver
 Colors = ['green', 'blue', 'orange']
 
 # run duration in seconds
-DURATION = 120
+DURATION = 600
 
 
 class Animation:
@@ -31,6 +31,13 @@ class Animation:
             self.pickup = None
 
         self.sequence = sequence
+
+        mapSize = len( my_map ) + len( my_map[ 0 ] )
+        if sequence != []:
+            DURATION = int( ( ( len( sequence ) / len( self.starts ) ) + 1 ) * mapSize * 1.4 )
+        else:
+            DURATION = int( mapSize * 1.8 ) 
+
 
         # calculates the paths needed for the current iteration
         self.solver = solver
