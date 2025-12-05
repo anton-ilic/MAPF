@@ -1,7 +1,13 @@
 import time as timer
 import heapq
 import random
-from single_agent_planner import compute_heuristics, a_star, get_location, get_sum_of_cost
+from single_agent_planner import ( 
+    compute_heuristics,
+    a_star,
+    get_location,
+    get_sum_of_cost,
+    get_timestep_for_location
+)
 from mpaf_solver import MAPFSolver
 
 
@@ -274,10 +280,21 @@ class CBSSolver(MAPFSolver):
     # we simple drop the end of the path of one agent and wait for the other to move
     # to recalcuate this path
     def handleSharedGoalCollision( self, collision, node ):
-        delayedAgent = collision[ "a1" ]
-        priorityAgent = collision[ "a2" ]
-
         location = collision[ "loc" ][0]
+
+        a1 = collision[ 'a1' ]
+        a2 = collision[ 'a2' ]
+
+        a1timestep = get_timestep_for_location( node[ 'paths' ][ a1 ], location )
+        a2timestep = get_timestep_for_location( node[ 'paths' ][ a2 ], location )
+
+        if a1timestep > a2timestep:
+            delayedAgent = a1
+            priorityAgent = a2
+        else:
+            delayedAgent = a2
+            priorityAgent = a1
+
 
         if self.goals[ delayedAgent ] != self.goals[ priorityAgent ] and not (
             self.is_marked_for_updates( delayedAgent ) or self.is_marked_for_updates( priorityAgent )

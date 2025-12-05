@@ -5,6 +5,13 @@ def move(loc, dir):
     directions = [(0, -1), (1, 0), (0, 1), (-1, 0), (0, 0)]
     return loc[0] + directions[dir][0], loc[1] + directions[dir][1]
 
+def get_timestep_for_location(path, loc):
+    # returns the first timestep that the agent gets to the passed location
+    for i, path_loc in enumerate( path ):
+        if loc == path_loc:
+            return i
+    return -1
+
 
 def get_sum_of_cost(paths):
     rst = 0
