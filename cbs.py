@@ -117,20 +117,6 @@ class CBSSolver(ResolvingSolver):
 
         super().__init__(my_map, starts, goals)
 
-        self.paths = []
-
-        # for agents that can't make it to the goal, allows them to be
-        # n steps away from the goal instead
-        self.nonarriveDist = int( ( self.num_of_agents / 4 ) + 1 )
-
-        # stores any agents that need new paths in a later update
-        self.pending_agents = []
-
-        # compute heuristics for the low-level search
-        self.heuristics = []
-        for goal in self.goals:
-            self.heuristics.append(compute_heuristics(my_map, goal))
-
     def push_node(self, node):
         heapq.heappush(self.open_list, (node['cost'], len(node['collisions']), self.num_of_generated, node))
         # print("Generate node {}".format(self.num_of_generated))
@@ -192,16 +178,6 @@ class CBSSolver(ResolvingSolver):
             new_node[ "collisions" ] = detect_collisions( new_node[ "paths" ] )
 
             self.push_node( new_node )
-
-    def calculate_colliding_paths(self):
-        self.paths = []
-
-        for i in range(self.num_of_agents):
-            path = a_star(self.my_map, self.starts[i], self.goals[i], self.heuristics[i],
-                          i, [])
-            if path is None:
-                raise BaseException('No solutions')
-            self.paths.append(path)
 
     # used to handle a collision where both agents have the same goal and
     # the collision occurs at that goal.
@@ -361,90 +337,3 @@ class CBSSolver(ResolvingSolver):
 
         # restores the previous start values
         self.starts = oldStarts.copy()
-
-    def find_solution(self):
-
-        self.start_time = timer.time()
-
-        self.calculate_colliding_paths()
-
-        self.resolve_collisions()
-
-        print( "calculating all paths" )
-        self.print_results( self.paths )
-
-        return self.paths
-    
-    def mark_agent_for_updates( self, agent ):
-        if agent not in self.pending_agents:
-            self.pending_agents.append( agent )
-
-    def is_marked_for_updates( self, agent ):
-        return agent in self.pending_agents
-    
-    # calculates conflicting paths for all plending agents
-    def get_paths_for_pending_agents( self, timestep ):
-
-        for agent in self.pending_agents:
-            agentPath = []
-            if len(self.paths) > agent:
-                agentPath = self.paths[ agent ]
-
-            start = self.starts[agent]
-
-            if agentPath != []:
-                if ( len(agentPath) > timestep ):
-                    # uses timestep location as start location
-                    start = agentPath[ timestep ]
-                    # cuts agent path to timestep length
-                    agentPath = agentPath[:timestep]
-                else:
-                    # lengthens the path to satisfy the timestep requirements
-                    while len( agentPath ) < timestep :
-                        agentPath.append( agentPath[ -1 ] )
-                    start = agentPath[ -1 ]
-            else:
-                # lengthens the path to satisfy the timestep requirements
-                while len( agentPath ) < timestep:
-                    agentPath.append( start )
-
-            # calculates a new path
-            newPath = a_star(self.my_map, start, self.goals[ agent ], self.heuristics[ agent ],
-                            agent, [] )
-            
-            # adds it to the current path
-            agentPath.extend(newPath)
-
-            self.paths[agent] = agentPath
-
-        self.pending_agents = []
-
-    
-    def update_goal(self, agent, goal, timestep):
-        self.goals[ agent ] = goal
-
-        self.start_time = timer.time()
-
-        # re-calcuates the heuristic to use the new goal
-        self.heuristics[ agent ] = compute_heuristics( self.my_map, goal )
-
-        self.mark_agent_for_updates( agent )
-
-        self.get_paths_for_pending_agents( timestep )
-
-        self.resolve_collisions(timestep=timestep)
-
-        print( f"recalculating paths for agent {agent}" )
-        self.print_results( self.paths )
-
-        return self.paths
-
-
-    """def print_results(self, node):
-        print("\n Found a solution! \n")
-        CPU_time = timer.time() - self.start_time
-        print("CPU time (s):    {:.2f}".format(CPU_time))
-        print("Sum of costs:    {}".format(get_sum_of_cost(node['paths'])))
-        print("Expanded nodes:  {}".format(self.num_of_expanded))
-        print("Generated nodes: {}".format(self.num_of_generated))
-        print( "proposed paths: {}".format( node[ "paths" ] ) )"""

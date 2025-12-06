@@ -1,4 +1,10 @@
-from single_agent_planner import get_location
+from single_agent_planner import (
+    get_location,
+    compute_heuristics,
+    a_star
+)
+
+import time as timer
 
 from mpaf_solver import MAPFSolver
 
@@ -83,4 +89,123 @@ works by generating a set of paths with collisions and then resolving the collis
 requires the abstract function `resolve_collisions` to be defined
 """
 class ResolvingSolver(MAPFSolver):
-    pass
+    def __init__(self, my_map, starts, goals):
+        """my_map   - list of lists specifying obstacle positions
+        starts      - [(x1, y1), (x2, y2), ...] list of start locations
+        goals       - [(x1, y1), (x2, y2), ...] list of goal locations
+        """
+
+        super().__init__(my_map, starts, goals)
+
+        self.paths = []
+
+        # for agents that can't make it to the goal, allows them to be
+        # n steps away from the goal instead
+        self.nonarriveDist = int( ( self.num_of_agents / 4 ) + 1 )
+
+        # stores any agents that need new paths in a later update
+        self.pending_agents = []
+
+        # compute heuristics for the low-level search
+        self.heuristics = []
+        for goal in self.goals:
+            self.heuristics.append(compute_heuristics(my_map, goal))
+
+    def calculate_colliding_paths(self):
+        """
+        calculates a set of colliding paths for the agents in the solver
+
+        creates a new path for each agent
+        """
+        self.paths = []
+
+        for i in range(self.num_of_agents):
+            path = a_star(self.my_map, self.starts[i], self.goals[i], self.heuristics[i],
+                          i, [])
+            if path is None:
+                raise BaseException('No solutions')
+            self.paths.append(path)
+
+    def resolve_collisions(self, timestep=0):
+        """
+        Finds paths for all agents from their start locations to their goal locations
+
+        requires a set of paths in place that may have collisions
+        """
+        raise BaseException( "abstract function resolve_collisions not implemented" )
+    
+    def find_solution(self):
+
+        self.start_time = timer.time()
+
+        self.calculate_colliding_paths()
+
+        self.resolve_collisions()
+
+        print( "calculating all paths" )
+        self.print_results( self.paths )
+
+        return self.paths
+    
+    def mark_agent_for_updates( self, agent ):
+        if agent not in self.pending_agents:
+            self.pending_agents.append( agent )
+
+    def is_marked_for_updates( self, agent ):
+        return agent in self.pending_agents
+    
+    # calculates conflicting paths for all plending agents
+    def get_paths_for_pending_agents( self, timestep ):
+
+        for agent in self.pending_agents:
+            agentPath = []
+            if len(self.paths) > agent:
+                agentPath = self.paths[ agent ]
+
+            start = self.starts[agent]
+
+            if agentPath != []:
+                if ( len(agentPath) > timestep ):
+                    # uses timestep location as start location
+                    start = agentPath[ timestep ]
+                    # cuts agent path to timestep length
+                    agentPath = agentPath[:timestep]
+                else:
+                    # lengthens the path to satisfy the timestep requirements
+                    while len( agentPath ) < timestep :
+                        agentPath.append( agentPath[ -1 ] )
+                    start = agentPath[ -1 ]
+            else:
+                # lengthens the path to satisfy the timestep requirements
+                while len( agentPath ) < timestep:
+                    agentPath.append( start )
+
+            # calculates a new path
+            newPath = a_star(self.my_map, start, self.goals[ agent ], self.heuristics[ agent ],
+                            agent, [] )
+            
+            # adds it to the current path
+            agentPath.extend(newPath)
+
+            self.paths[agent] = agentPath
+
+        self.pending_agents = []
+
+    def update_goal(self, agent, goal, timestep):
+        self.goals[ agent ] = goal
+
+        self.start_time = timer.time()
+
+        # re-calcuates the heuristic to use the new goal
+        self.heuristics[ agent ] = compute_heuristics( self.my_map, goal )
+
+        self.mark_agent_for_updates( agent )
+
+        self.get_paths_for_pending_agents( timestep )
+
+        self.resolve_collisions(timestep=timestep)
+
+        print( f"recalculating paths for agent {agent}" )
+        self.print_results( self.paths )
+
+        return self.paths
