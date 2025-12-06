@@ -81,6 +81,46 @@ def detect_collisions(paths):
     
     return collisions
 
+def split_path( path, timestep ):
+    """
+    takes a path and splits off the portion that takes place after the specified timestep
+
+    if required extends the path the specified timestep so theres something to split
+    
+    :param path: the path to split
+    :param timestep: the timestep to split the path at
+    """
+
+    if len( path ) < timestep:
+        return path[ -1 ]
+    else:
+        return path[timestep-1:]
+    
+def extend_path( path, timestep, new_path ):
+    """
+    replaces the segement of a path starting at timestep with the provided new path
+
+    extends the path as needed to allow indexing at timestep
+
+    ex. extending the path `[(1, 1), (1, 2), (1, 3), (1, 4)]` from timestep
+    2 with [(1, 3), (2, 3), (3, 3)] results in 
+    [(1, 1), (1, 2), (1, 3), (2, 3), (3, 3)]
+    
+    :param path: Description
+    :param timestep: Description
+    :param new_path: Description
+    """
+
+    # lengthens the path if needed
+    while len( path ) < timestep:
+        path.append( path[-1] )
+
+    # cuts and re-extends the path
+    path = path[:timestep-1]
+    path.extend(new_path)
+
+    return path
+    
 """
 A class for solving multi-agent pathfinding problems.
 
@@ -165,29 +205,18 @@ class ResolvingSolver(MAPFSolver):
             start = self.starts[agent]
 
             if agentPath != []:
-                if ( len(agentPath) > timestep ):
+                if ( len(agentPath) >= timestep ):
                     # uses timestep location as start location
-                    start = agentPath[ timestep ]
-                    # cuts agent path to timestep length
-                    agentPath = agentPath[:timestep]
+                    start = agentPath[ timestep-1]
                 else:
-                    # lengthens the path to satisfy the timestep requirements
-                    while len( agentPath ) < timestep :
-                        agentPath.append( agentPath[ -1 ] )
+                    # uses the end of the path as the start
                     start = agentPath[ -1 ]
-            else:
-                # lengthens the path to satisfy the timestep requirements
-                while len( agentPath ) < timestep:
-                    agentPath.append( start )
 
             # calculates a new path
             newPath = a_star(self.my_map, start, self.goals[ agent ], self.heuristics[ agent ],
                             agent, [] )
-            
-            # adds it to the current path
-            agentPath.extend(newPath)
 
-            self.paths[agent] = agentPath
+            self.paths[agent] = extend_path( agentPath, timestep, newPath )
 
         self.pending_agents = []
 
