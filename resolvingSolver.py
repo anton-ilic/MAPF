@@ -90,11 +90,13 @@ def split_path( path, timestep ):
     :param path: the path to split
     :param timestep: the timestep to split the path at
     """
-
-    if len( path ) < timestep:
-        return path[ -1 ]
+    if timestep > 0:
+        if len( path ) < timestep:
+            return path[ -1 ]
+        else:
+            return path[timestep-1:]
     else:
-        return path[timestep-1:]
+        return path
     
 def extend_path( path, timestep, new_path ):
     """
@@ -111,15 +113,18 @@ def extend_path( path, timestep, new_path ):
     :param new_path: Description
     """
 
-    # lengthens the path if needed
-    while len( path ) < timestep:
-        path.append( path[-1] )
+    if timestep > 0:
+        # lengthens the path if needed
+        while len( path ) < timestep:
+            path.append( path[-1] )
 
-    # cuts and re-extends the path
-    path = path[:timestep-1]
-    path.extend(new_path)
+        # cuts and re-extends the path
+        path = path[:timestep-1]
+        path.extend(new_path)
 
-    return path
+        return path
+    else:
+        return new_path
     
 """
 A class for solving multi-agent pathfinding problems.

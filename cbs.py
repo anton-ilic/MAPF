@@ -10,7 +10,9 @@ from single_agent_planner import (
 from resolvingSolver import (
     ResolvingSolver,
     detect_collisions,
-    paths_violate_constraint
+    paths_violate_constraint,
+    split_path,
+    extend_path
 )
 
 
@@ -246,11 +248,8 @@ class CBSSolver(ResolvingSolver):
         self.starts = []
 
         for i, path in enumerate( self.paths ):
-            # finds the portion of the path that hasn't been executed yet
-            if len(path) > timestep:
-                releventPaths.append( path[timestep:] )
-            else:
-                releventPaths.append( [ path[-1] ] )
+            # splits the path and adds it to the relevant potions
+            releventPaths.append( split_path( path, timestep ) )
             # writes the new start location
             self.starts.append( releventPaths[-1][0] )
 
@@ -319,21 +318,7 @@ class CBSSolver(ResolvingSolver):
 
         # adds the found paths onto the existing paths
         for i, path in enumerate( best_node[ "paths" ] ):
-            if len( self.paths[i] ) > timestep:
-                # replaces the back part of this path with the newly calculated path
-                partialPath = self.paths[i][:timestep]
-                partialPath.extend(path)
-
-                self.paths[i] = partialPath.copy()
-
-            else:
-
-                while len( self.paths[i] ) < timestep:
-                    # adds the last path position in to fill passed timesteps
-                    self.paths[i].append( self.paths[i][-1] )
-
-                # extends this path by whatever was added to it
-                self.paths[i].extend( path )
+            self.paths[i] = extend_path( self.paths[i], timestep, path )
 
         # restores the previous start values
         self.starts = oldStarts.copy()
