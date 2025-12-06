@@ -275,9 +275,18 @@ class LargeNeighbourhoodSolver(MAPFSolver):
             preserved_path = []
             start_location = self.starts[agent]
             
-            if replan_from_timestep > 0 and len(self.paths[agent]) > replan_from_timestep:
-                # Keep the path up to replan_from_timestep
-                preserved_path = self.paths[agent][:replan_from_timestep]
+            if replan_from_timestep > 0:
+                print( f"extending path for agent {agent}" )
+                if len(self.paths[agent]) > replan_from_timestep:
+                    # Keep the path up to replan_from_timestep
+                    preserved_path = self.paths[agent][:replan_from_timestep]
+                else:
+                    while len(self.paths[agent]) < replan_from_timestep:
+                        # extends the path by assuming the agent stays in its last timestep
+                        self.paths[agent].append(self.paths[agent][-1])
+
+                    # copies the previous path to preserve
+                    preserved_path = self.paths[agent].copy()
                 # Start replanning from the last preserved location
                 start_location = preserved_path[-1]
             
