@@ -1,6 +1,9 @@
 from single_agent_planner import get_sum_of_cost
 import time as timer
 
+"""
+A class for any solver used for multi-agent pathfinding problems
+"""
 class MAPFSolver(object):
 
     # initializes the MAPFSOlver with a MAPF problem

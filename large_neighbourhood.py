@@ -1,14 +1,10 @@
 import time as timer
 import heapq
 import random
-from single_agent_planner import compute_heuristics, a_star, get_location, get_sum_of_cost
-from mpaf_solver import MAPFSolver
-
-from cbs import (
-    paths_violate_constraint,
-    detect_collision,
-    detect_collisions,
-
+from single_agent_planner import compute_heuristics, a_star
+from resolvingSolver import (
+    ResolvingSolver,
+    detect_collisions
 )
 
 def get_remaining_agents( num_of_agents, neighbourhood ):
@@ -23,7 +19,7 @@ def get_remaining_agents( num_of_agents, neighbourhood ):
 
     return remaining_agents
 
-class LargeNeighbourhoodSolver(MAPFSolver):
+class LargeNeighbourhoodSolver(ResolvingSolver):
     """The high-level search of CBS."""
 
     def __init__(self, my_map, starts, goals):
