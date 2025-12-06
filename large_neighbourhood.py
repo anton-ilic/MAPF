@@ -522,6 +522,9 @@ class LargeNeighbourhoodSolver(MAPFSolver):
     def mark_agent_for_updates( self, agent ):
         if agent not in self.pending_agents:
             self.pending_agents.append( agent )
+
+    def is_marked_for_updates( self, agent ):
+        return agent in self.pending_agents
     
     # calculates conflicting paths for all plending agents
     def get_paths_for_pending_agents( self, timestep ):
