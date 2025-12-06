@@ -1,7 +1,13 @@
 import time as timer
 import heapq
 import random
-from single_agent_planner import compute_heuristics, a_star, get_location, get_sum_of_cost
+from single_agent_planner import ( 
+    compute_heuristics,
+    a_star,
+    get_location,
+    get_sum_of_cost,
+    get_timestep_for_location
+)
 from mpaf_solver import MAPFSolver
 
 
@@ -184,6 +190,10 @@ class CBSSolver(MAPFSolver):
 
         self.paths = []
 
+        # for agents that can't make it to the goal, allows them to be
+        # n steps away from the goal instead
+        self.nonarriveDist = int( ( self.num_of_agents / 4 ) + 1 )
+
         # stores any agents that need new paths in a later update
         self.pending_agents = []
 
@@ -229,8 +239,13 @@ class CBSSolver(MAPFSolver):
 
             #calculate new paths with new constraints
             for agent in updated_agents:
-                path = a_star( self.my_map, self.starts[agent], self.goals[agent], self.heuristics[agent],
-                               agent, new_node[ "constraints" ] )
+                if self.is_marked_for_updates( agent ):
+                    path = a_star( self.my_map, self.starts[agent], self.goals[agent], self.heuristics[agent],
+                                agent, new_node[ "constraints" ], goalDist=self.nonarriveDist )
+                    print( f"replanned for non-finishing path: {path}\ngoal is: {self.goals[ agent ]}" )
+                else:
+                    path = a_star( self.my_map, self.starts[agent], self.goals[agent], self.heuristics[agent],
+                                agent, new_node[ "constraints" ] )
                 
                 # checks if the path was calculated successfully
                 if path is not None:
@@ -265,12 +280,25 @@ class CBSSolver(MAPFSolver):
     # we simple drop the end of the path of one agent and wait for the other to move
     # to recalcuate this path
     def handleSharedGoalCollision( self, collision, node ):
-        delayedAgent = collision[ "a1" ]
-        priorityAgent = collision[ "a2" ]
-
         location = collision[ "loc" ][0]
 
-        if location != self.goals[ delayedAgent ] or location != self.goals[ priorityAgent ]:
+        a1 = collision[ 'a1' ]
+        a2 = collision[ 'a2' ]
+
+        a1timestep = get_timestep_for_location( node[ 'paths' ][ a1 ], location )
+        a2timestep = get_timestep_for_location( node[ 'paths' ][ a2 ], location )
+
+        if a1timestep > a2timestep:
+            delayedAgent = a1
+            priorityAgent = a2
+        else:
+            delayedAgent = a2
+            priorityAgent = a1
+
+
+        if self.goals[ delayedAgent ] != self.goals[ priorityAgent ] and not (
+            self.is_marked_for_updates( delayedAgent ) or self.is_marked_for_updates( priorityAgent )
+        ):
             raise RuntimeError( "handleSharedGoalCollision called on non shared goal collision" )
         
         new_node = {
@@ -280,11 +308,9 @@ class CBSSolver(MAPFSolver):
             "collisions": []
         }
 
-        # removes the end of the path from the delayed agent
-        new_node[ "paths" ][ delayedAgent ].pop()
-
         # marks the skipped agent to be updated at the next cycle
         self.mark_agent_for_updates( delayedAgent )
+        print( f"marked {delayedAgent} for incomplete paths")
 
         # calculates cost and collisions on new path
         new_node[ "cost" ] = get_sum_of_cost( new_node[ "paths" ] )
@@ -378,7 +404,9 @@ class CBSSolver(MAPFSolver):
 
             # print( f"a1Goal: {agent1goal}, a2Goal: {agent2goal}, collLoc: {collLoc}")
 
-            if collLoc is not None and collLoc == agent1goal and agent1goal == agent2goal:
+            if ( collLoc is not None and agent1goal == agent2goal and
+                 not ( self.is_marked_for_updates( collision[ 'a1' ] ) or 
+                       self.is_marked_for_updates( collision[ 'a2' ] ) ) ):
                 print( "handling shared goal collision" )
                 self.handleSharedGoalCollision( collision, node )
             else:
@@ -421,6 +449,9 @@ class CBSSolver(MAPFSolver):
     def mark_agent_for_updates( self, agent ):
         if agent not in self.pending_agents:
             self.pending_agents.append( agent )
+
+    def is_marked_for_updates( self, agent ):
+        return agent in self.pending_agents
     
     # calculates conflicting paths for all plending agents
     def get_paths_for_pending_agents( self, timestep ):
