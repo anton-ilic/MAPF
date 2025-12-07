@@ -9,7 +9,7 @@ Colors = ['green', 'blue', 'orange']
 
 # run duration in seconds
 DURATION = 600
-ESTIMATE_DURATION = False
+ESTIMATE_DURATION = True
 
 
 class Animation:
@@ -33,12 +33,15 @@ class Animation:
 
         self.sequence = sequence
 
+        self.duration = DURATION
         if ESTIMATE_DURATION:
             mapSize = len( my_map ) + len( my_map[ 0 ] )
             if sequence != []:
-                DURATION = int( ( ( len( sequence ) / len( self.starts ) ) + 1 ) * mapSize * 1.4 )
+                # Each agent may need to make multiple trips (pickup -> dropoff -> pickup -> dropoff...)
+                # Average 2 full trips per item in sequence, with some buffer
+                self.duration = int( len( sequence ) * mapSize * 3.0 )
             else:
-                DURATION = int( mapSize * 1.8 ) 
+                self.duration = int( mapSize * 1.8 ) 
 
 
         # calculates the paths needed for the current iteration
@@ -134,9 +137,10 @@ class Animation:
 
         self.animation = animation.FuncAnimation(self.fig, self.animate_func,
                                                  init_func=self.init_func,
-                                                 frames=DURATION * 10,
+                                                 frames=self.duration * 10,
                                                  interval=100,
-                                                 blit=True)
+                                                 blit=True,
+                                                 repeat=False)
         
     def convertToAnimationSpace(self, pos):
         return (pos[1], len(self.my_map[0]) - 1 - pos[0])

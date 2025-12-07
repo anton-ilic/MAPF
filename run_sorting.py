@@ -82,7 +82,8 @@ def import_mapf_instance(filename):
     line = f.readline()
     px, py = [int(x) for x in line.split(' ')]
     pickup = (px, py)
-    # reads the pickup sequence
+    
+    # reads the dropoff sequence  
     line = f.readline()
     sequence = [int(x) for x in line.split(' ')]
     #done with file
@@ -109,6 +110,8 @@ if __name__ == '__main__':
         print("***Import an instance***")
         my_map, starts, pickup, dropoffs, sequence = import_mapf_instance(file)
         print_mapf_instance(my_map, starts, pickup, dropoffs)
+        
+        initial_goals = [pickup for _ in range(len(starts))]
 
         """if args.solver == "CBS":
             print("***Run CBS***")
@@ -127,13 +130,13 @@ if __name__ == '__main__':
         
         if args.solver == "IND":
             print("***Run Independent***")
-            solver = IndivSolver( my_map, starts, [pickup] * len(starts) )
+            solver = IndivSolver( my_map, starts, initial_goals )
         elif args.solver == "CBS":
             print( "***Run CBS***" )
-            solver = CBSSolver( my_map, starts, [pickup] * len(starts) )
+            solver = CBSSolver( my_map, starts, initial_goals )
         elif args.solver == "LNS":
             print( "***Run Large Neighbourhood Search***" )
-            solver = LargeNeighbourhoodSolver( my_map, starts, [pickup] * len(starts) )
+            solver = LargeNeighbourhoodSolver( my_map, starts, initial_goals )
         else:
             raise RuntimeError( "Unknown solver!!!" )
         
