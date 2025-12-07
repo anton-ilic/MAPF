@@ -9,6 +9,7 @@ Colors = ['green', 'blue', 'orange']
 
 # run duration in seconds
 DURATION = 600
+ESTIMATE_DURATION = False
 
 
 class Animation:
@@ -32,11 +33,12 @@ class Animation:
 
         self.sequence = sequence
 
-        mapSize = len( my_map ) + len( my_map[ 0 ] )
-        if sequence != []:
-            DURATION = int( ( ( len( sequence ) / len( self.starts ) ) + 1 ) * mapSize * 1.4 )
-        else:
-            DURATION = int( mapSize * 1.8 ) 
+        if ESTIMATE_DURATION:
+            mapSize = len( my_map ) + len( my_map[ 0 ] )
+            if sequence != []:
+                DURATION = int( ( ( len( sequence ) / len( self.starts ) ) + 1 ) * mapSize * 1.4 )
+            else:
+                DURATION = int( mapSize * 1.8 ) 
 
 
         # calculates the paths needed for the current iteration
