@@ -92,7 +92,7 @@ def split_path( path, timestep ):
     """
     if timestep > 0:
         if len( path ) < timestep:
-            return path[ -1 ]
+            return [ path[ -1 ] ]
         else:
             return path[timestep-1:]
     else:
