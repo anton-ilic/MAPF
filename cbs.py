@@ -131,10 +131,10 @@ class CBSSolver(ResolvingSolver):
         return node
     
     def generate_nodes( self, collision, parent_node, disjoint=True ):
-        if disjoint:
-            constr_split = disjoint_splitting( collision )
-        else:
-            constr_split = standard_splitting(collision)
+        a1 = collision[ 'a1' ]
+        a2 = collision[ 'a2' ]
+        
+        constr_split = disjoint_splitting( collision )
         
         for constr in constr_split:
             # creates a new node with the parent constraints and the new constraint
@@ -142,7 +142,8 @@ class CBSSolver(ResolvingSolver):
                 "cost": 0,
                 "constraints": parent_node[ "constraints" ].copy(),
                 "paths": parent_node[ "paths" ].copy(),
-                "collisions": []
+                "collisions": [],
+                "non-goal": parent_node[ "non-goal" ].copy(),
             }
             new_node[ "constraints" ].append( constr )
 
@@ -156,7 +157,8 @@ class CBSSolver(ResolvingSolver):
 
             #calculate new paths with new constraints
             for agent in updated_agents:
-                if self.is_marked_for_updates( agent ):
+                # checks if this agent is marked for not arriving at the goal
+                if agent in new_node[ 'non-goal' ]:
                     path = search_closest( 
                         self.my_map, 
                         self.starts[agent], 
@@ -217,7 +219,7 @@ class CBSSolver(ResolvingSolver):
 
 
         if self.goals[ delayedAgent ] != self.goals[ priorityAgent ] or (
-            self.is_marked_for_updates( delayedAgent ) or self.is_marked_for_updates( priorityAgent )
+            delayedAgent in node[ 'non-goal' ] or priorityAgent in node[ 'non-goal' ]
         ):
             raise RuntimeError( "handleSharedGoalCollision called on non shared goal collision" )
         
@@ -225,12 +227,12 @@ class CBSSolver(ResolvingSolver):
             "cost": 0,
             "constraints": node[ "constraints" ].copy(),
             "paths": node[ "paths" ].copy(),
-            "collisions": []
+            "collisions": [],
+            "non-goal": node[ 'non-goal' ].copy()
         }
 
         # marks the skipped agent to be updated at the next cycle
-        self.mark_agent_for_updates( delayedAgent )
-        print( f"marked {delayedAgent} for incomplete paths")
+        new_node[ 'non-goal' ].append( delayedAgent )
 
         # calculates cost and collisions on new path
         new_node[ "cost" ] = get_sum_of_cost( new_node[ "paths" ] )
@@ -274,7 +276,8 @@ class CBSSolver(ResolvingSolver):
         root = {'cost': 0,
                 'constraints': [],
                 'paths': releventPaths.copy(),
-                'collisions': []}
+                'collisions': [],
+                'non-goal': [] }
         
         """for i in range(self.num_of_agents):  # Find initial path for each agent
             path = a_star(self.my_map, self.starts[i], self.goals[i], self.heuristics[i],
@@ -315,6 +318,8 @@ class CBSSolver(ResolvingSolver):
             # generates a node for the first collision
             collision = node[ "collisions" ][ 0 ]
 
+            print( f"handling collision {collision}" )
+
             agent1goal = self.goals[ collision[ 'a1' ] ]
             agent2goal = self.goals[ collision[ 'a2' ] ]
             collLoc = collision[ 'loc' ][0] if len(collision[ 'loc' ]) == 1 else None
@@ -322,8 +327,8 @@ class CBSSolver(ResolvingSolver):
             # print( f"a1Goal: {agent1goal}, a2Goal: {agent2goal}, collLoc: {collLoc}")
 
             if ( collLoc is not None and agent1goal == agent2goal and
-                 not ( self.is_marked_for_updates( collision[ 'a1' ] ) or 
-                       self.is_marked_for_updates( collision[ 'a2' ] ) ) ):
+                 not ( collision[ 'a1' ] in node[ 'non-goal' ]  or 
+                       collision[ 'a2' ] in node[ 'non-goal' ] ) ):
                 print( "handling shared goal collision" )
                 self.handleSharedGoalCollision( collision, node )
             else:
@@ -332,6 +337,9 @@ class CBSSolver(ResolvingSolver):
         # adds the found paths onto the existing paths
         for i, path in enumerate( best_node[ "paths" ] ):
             self.paths[i] = extend_path( self.paths[i], timestep, path )
+
+        # marks the non-goal agents as pending
+        self.pending_agents = best_node[ 'non-goal' ].copy()
 
         # restores the previous start values
         self.starts = oldStarts.copy()

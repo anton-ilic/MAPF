@@ -224,7 +224,13 @@ def check_can_make_constraints( loc, current_time, agent, constraint_table:dict 
 
 # checks the constraint table for any future vertex constraints on being in this location
 # returns True if there is a constraint on loc in the future
-def check_future_constraints( loc, current_time, constraint_table:dict ):
+def check_future_constraints( loc, current_time, constraint_table:dict, agent ):
+    next_future_constr = find_next_positive_constraint( current_time, agent, constraint_table )
+
+    # if next_future_constr is not None:
+        # there is a future positive constraint that must be handled so this goal cannot be accepted
+        # return True
+
     for ( time, constraint_list ) in constraint_table.items():
         if time < current_time:
             continue
@@ -351,7 +357,7 @@ def focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints, weig
         propogate_constraints(curr['time_step'], constraint_table)
 
         if curr['loc'] == goal_loc:
-            if not check_future_constraints(curr['loc'], curr['time_step'], constraint_table):
+            if not check_future_constraints(curr['loc'], curr['time_step'], constraint_table, agent):
                 return get_path(curr)
 
         for dir in range(5):
@@ -428,7 +434,7 @@ def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight, 
     # this approach assumes that each constraint will require 1 additional timestep to handle
     # however, in the case of constraints on the goal location, it may be required to search far after the goal has been reached
     # for this reason, if the last constraint timestep is larger than the heuristic value, its used instead
-    max_steps = max( h_values[ start_loc ], last_constr_timestep ) + constraint_count
+    max_steps = ( max( h_values[ start_loc ], last_constr_timestep ) + constraint_count ) * 5
 
     open_list = []
     # keyed using cell location and timestep
@@ -460,14 +466,14 @@ def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight, 
         if goalDist == 0:
             if ( curr['loc'] == goal_loc and not 
                 check_future_constraints( curr[ 'loc' ], curr[ 'time_step' ], 
-                                        constraint_table ) ):
+                                        constraint_table, agent ) ):
                 # returns the path if the goal is found
                 return get_path(curr)
         else:
             # print( "checking non-goal paths" )
             if ( ( h_values[ curr[ 'loc' ] ] <= goalDist ) and not
                  check_future_constraints( curr[ 'loc' ], curr[ 'time_step' ],
-                                           constraint_table ) ):
+                                           constraint_table, agent ) ):
                 
                 # returns the path since it goes close enough to the goal
                 return get_path( curr )
@@ -586,8 +592,9 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, search_typ
         #############################
         # Task 1.4: Adjust the goal test condition to handle goal constraints
         if ( curr['loc'] == goal_loc and not 
+            
              check_future_constraints( curr[ 'loc' ], curr[ 'time_step' ], 
-                                       constraint_table ) ):
+                                       constraint_table, agent ) ):
             # returns the path if the goal is found
             return get_path(curr)
         for dir in range(5):
