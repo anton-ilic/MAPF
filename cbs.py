@@ -2,7 +2,6 @@ import time as timer
 import heapq
 import random
 from single_agent_planner import ( 
-    compute_heuristics,
     a_star,
     get_sum_of_cost,
     get_timestep_for_location
@@ -203,7 +202,7 @@ class CBSSolver(ResolvingSolver):
             priorityAgent = a1
 
 
-        if self.goals[ delayedAgent ] != self.goals[ priorityAgent ] and not (
+        if self.goals[ delayedAgent ] != self.goals[ priorityAgent ] or (
             self.is_marked_for_updates( delayedAgent ) or self.is_marked_for_updates( priorityAgent )
         ):
             raise RuntimeError( "handleSharedGoalCollision called on non shared goal collision" )
@@ -247,7 +246,7 @@ class CBSSolver(ResolvingSolver):
         oldStarts = self.starts.copy()
         self.starts = []
 
-        for i, path in enumerate( self.paths ):
+        for path in self.paths:
             # splits the path and adds it to the relevant potions
             releventPaths.append( split_path( path, timestep ) )
             # writes the new start location
