@@ -255,6 +255,28 @@ def compare_nodes(n1, n2):
     """Return true is n1 is better than n2."""
     return n1['g_val'] + n1['h_val'] < n2['g_val'] + n2['h_val']
 
+def search_closest(my_map, start_loc, goal_loc, h_values, agent, constraints, search_type=None, weight=None, goalDist=100):
+    path = None
+    dist = 1
+
+    while path is None and dist <= goalDist:
+        path = a_star(
+                my_map,
+                start_loc,
+                goal_loc,
+                h_values,
+                agent,
+                constraints,
+                search_type,
+                weight,
+                dist
+        )
+        
+        # increases dist to check for next distance
+        dist += 1
+
+    return path
+
 def focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints, weight=1.5):
     """ my_map      - binary obstacle map
         start_loc   - start position

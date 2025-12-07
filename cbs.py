@@ -4,7 +4,8 @@ import random
 from single_agent_planner import ( 
     a_star,
     get_sum_of_cost,
-    get_timestep_for_location
+    get_timestep_for_location,
+    search_closest
 )
 from resolvingSolver import (
     ResolvingSolver,
@@ -156,12 +157,25 @@ class CBSSolver(ResolvingSolver):
             #calculate new paths with new constraints
             for agent in updated_agents:
                 if self.is_marked_for_updates( agent ):
-                    path = a_star( self.my_map, self.starts[agent], self.goals[agent], self.heuristics[agent],
-                                agent, new_node[ "constraints" ], goalDist=self.nonarriveDist )
+                    path = search_closest( 
+                        self.my_map, 
+                        self.starts[agent], 
+                        self.goals[agent], 
+                        self.heuristics[agent],
+                        agent, 
+                        new_node[ "constraints" ], 
+                        goalDist=self.nonarriveDist
+                    )
                     print( f"replanned for non-finishing path: {path}\ngoal is: {self.goals[ agent ]}" )
                 else:
-                    path = a_star( self.my_map, self.starts[agent], self.goals[agent], self.heuristics[agent],
-                                agent, new_node[ "constraints" ] )
+                    path = a_star(
+                        self.my_map,
+                        self.starts[agent],
+                        self.goals[agent],
+                        self.heuristics[agent],
+                        agent,
+                        new_node[ "constraints" ]
+                    )
                 
                 # checks if the path was calculated successfully
                 if path is not None:

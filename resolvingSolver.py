@@ -146,7 +146,7 @@ class ResolvingSolver(MAPFSolver):
 
         # for agents that can't make it to the goal, allows them to be
         # n steps away from the goal instead
-        self.nonarriveDist = int( ( self.num_of_agents / 4 ) + 1 )
+        self.nonarriveDist = int( self.num_of_agents - 1 )
 
         # stores any agents that need new paths in a later update
         self.pending_agents = []

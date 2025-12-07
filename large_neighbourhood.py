@@ -1,7 +1,11 @@
 import time as timer
 import heapq
 import random
-from single_agent_planner import a_star, get_timestep_for_location
+from single_agent_planner import (
+    a_star,
+    get_timestep_for_location,
+    search_closest
+)
 from resolvingSolver import (
     ResolvingSolver,
     detect_collisions,
@@ -178,7 +182,7 @@ class LargeNeighbourhoodSolver(ResolvingSolver):
 
             if self.is_marked_for_updates( agent ):
                 # calculates a new path that goes close to the goal but doesn't arrive at it
-                new_path = a_star(
+                new_path = search_closest(
                     self.my_map,
                     new_starts[agent],
                     self.goals[agent],
