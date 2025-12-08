@@ -43,3 +43,6 @@ class MAASolver( MAPFSolver ):
         self.paths = paths
         
         return paths
+    
+    def update_goal(self, agent, goal, timestep):
+        self.goals[ agent ] = goal
