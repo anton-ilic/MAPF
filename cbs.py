@@ -177,19 +177,19 @@ class CBSSolver(ResolvingSolver):
             else:
                 skipped_path = True
 
-            if skipped_path:
-                # if a new path was not calculated for every agent, 
-                # node is invalid, don't return
-                return None
+        if skipped_path:
+            # if a new path was not calculated for every agent, 
+            # node is invalid, don't return
+            return None
 
-            # calculates cost and collisions on new path
-            new_node[ "cost" ] = (
-                get_sum_of_cost( new_node[ "paths" ] ) +
-                ( SHARED_COLLISION_MULT * self.count_overlapping_goals( new_node ) )
-            )
-            new_node[ "collisions" ] = detect_collisions( new_node[ "paths" ] )
+        # calculates cost and collisions on new path
+        new_node[ "cost" ] = (
+            get_sum_of_cost( new_node[ "paths" ] ) +
+            ( SHARED_COLLISION_MULT * self.count_overlapping_goals( new_node ) )
+        )
+        new_node[ "collisions" ] = detect_collisions( new_node[ "paths" ] )
 
-            return new_node
+        return new_node
 
     def push_node(self, node):
         heapq.heappush(self.open_list, (node['cost'], len(node['collisions']), self.num_of_generated, node))
@@ -308,11 +308,18 @@ class CBSSolver(ResolvingSolver):
         # paths         - list of paths, one for each agent
         #               [[(x11, y11), (x12, y12), ...], [(x21, y21), (x22, y22), ...], ...]
         # collisions     - list of collisions in paths
-        root = {'cost': 0,
+        root = self.create_node(
+            [],
+            releventPaths.copy(),
+            {},
+            []
+        )
+
+        """root = {'cost': 0,
                 'constraints': [],
                 'paths': releventPaths.copy(),
                 'collisions': [],
-                'non-goal': {} }
+                'non-goal': {} }"""
         
         """for i in range(self.num_of_agents):  # Find initial path for each agent
             path = a_star(self.my_map, self.starts[i], self.goals[i], self.heuristics[i],
@@ -321,8 +328,8 @@ class CBSSolver(ResolvingSolver):
                 raise BaseException('No solutions')
             root['paths'].append(path)"""
 
-        root['cost'] = get_sum_of_cost(root['paths'])
-        root['collisions'] = detect_collisions(root['paths'])
+        #root['cost'] = get_sum_of_cost(root['paths'])
+        #root['collisions'] = detect_collisions(root['paths'])
         self.push_node(root)
 
 
