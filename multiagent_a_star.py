@@ -114,7 +114,7 @@ def find_next_best_move( node, h_values, map, constraint_tables, agents ):
 
     
 
-def generate_node( locs, timestep, parent, h_values ):
+def generate_node( locs, timestep, parent, h_values, map, agents, constraint_tables ):
     node = {
         'loc': locs.copy(),
         'g_val': timestep * len( locs ),
@@ -124,6 +124,28 @@ def generate_node( locs, timestep, parent, h_values ):
         'completed_moves': [],
         'best_move': 0
     }
+
+    next_best = find_next_best_move(
+        node,
+        h_values,
+        map,
+        constraint_tables,
+        agents
+    )
+
+    if next_best is None:
+        # no valid moves from this node, return no node
+        return None
+    
+    best_move, heuristic = next_best
+
+    # assigns the best move and heuristic to the node
+    node[ 'best_move' ] = best_move
+    node[ 'h_val' ] = heuristic
+    node[ 'completed_moves' ] = [ best_move ]
+
+    # returns the new node
+    return node
 
 
 
