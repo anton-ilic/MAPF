@@ -3,7 +3,9 @@ from single_agent_planner import (
     build_constraint_table,
     is_blocked,
     is_constrained,
-    check_can_make_constraints
+    check_can_make_constraints,
+    propogate_constraints,
+    check_future_constraints
 )
 import heapq
 
@@ -147,7 +149,38 @@ def generate_node( locs, timestep, parent, h_values, map, agents, constraint_tab
     # returns the new node
     return node
 
+def check_for_goal( locs, goal_locs, constraint_tables, agents, timestep ):
+    for i, loc in enumerate( locs ):
+        if loc != goal_locs[i]:
+            # this agent is not at the goal, non-goal configuration return false
+            return False
+        
+        if check_future_constraints( loc, timestep, constraint_tables[i], agents[i] ):
+            # this agents location is constrained in the future, non-goal configuration
+            return False
+        
+    # if all agents in goal location with no constraints, goal configuration: True
+    return True
 
+def get_paths( goal_node ):
+    paths = []
+
+    # loops through each agent with a path
+    for i in len( goal_node[ 'loc' ] ):
+
+        curr_path = []
+        curr_node = goal_node
+        while curr_node is not None:
+            # steps through each node up the tree until the root node
+            curr_path.append( curr_node['loc'][i] )
+            curr_node = curr_node[ 'parent' ]
+
+        # Reverses the path to ensure its in the right order
+        curr_path.reverse()
+        # adds it to the path list
+        paths.append( curr_path )
+
+    return paths
 
 
 
@@ -211,20 +244,101 @@ def weight_multi_a_star(
     open_list = []
     closed_list = dict()
 
-    root = {
-        'loc': start_locs.copy(),
-        'g_val': 0,
-        'h_val': total_h_value,
-        'parent': None,
-        'time_step': 0
-    }
+    root = generate_node(
+        start_locs.copy(),
+        0,
+        None,
+        h_values,
+        my_map,
+        agents,
+        constraint_tables
+    )
+
+    if root is None:
+        # no valid moves from root node, unsolvable case
+        return None
 
     # pushes the root node into the open list
     heapq.heappush(open_list, 
                    (root['g_val'] + weight * root['h_val'], root['h_val'], root['loc'], root))
     
     # starts the closed list with the root node in it
+    closed_list[ ( tuple(root[ 'loc' ]), root[ 'time_step' ] )] = root
 
-
-
+    # updates the constraints tables
+    for table in constraint_tables:
+        # pushes forward the goal constraints for each agent
+        propogate_constraints( curr_node[ 'time_step' ] + 1, table )
     
+    while len(open_list) > 0:
+        # gets the next best node to check
+        _, _, _, curr_node = heapq.heappop( open_list )
+
+        if curr_node[ 'time_step' ] > max_steps:
+            # this node is too deep in the tree, purge it
+            continue
+
+        # updates the constraints tables
+        for table in constraint_tables:
+            # pushes forward the goal constraints for each agent
+            propogate_constraints( curr_node[ 'time_step' ] + 1, table )
+
+        if check_for_goal(
+            curr_node[ 'loc' ],
+            goal_locs,
+            constraint_tables,
+            agents,
+            curr_node[ 'timestep' ]
+        ):
+            # this is a goal configuration! 
+            return get_paths( curr_node )
+        
+        # gets the next move for this node
+        next_move = curr_node[ 'best_move' ]
+        child_loc = multi_move( curr_node[ 'loc' ], next_move )
+
+        # creates a child node from this move
+        child_node = generate_node(
+            child_loc,
+            curr_node[ 'time_step' ] + 1,
+            curr_node,
+            h_values,
+            my_map,
+            agents,
+            constraint_tables
+        )
+
+        # checks if a child node was successfuly created
+        if child_node is not None:
+            
+            # checks if this configuration is in the closed list
+            if not ( tuple( child_node[ 'loc' ] ), child_node[ 'timestep' ] ) in closed_list:
+                closed_list[ ( tuple( child_node[ 'loc' ] ), child_node[ 'timestep' ] ) ] = child_node
+
+                heapq.heappush( open_list, 
+                   (child_node['g_val'] + weight * child_node['h_val'], child_node['h_val'], child_node['loc'], child_node))
+                
+        # finds the next best move to try on the parent node
+        next_best_move = find_next_best_move(
+            curr_node,
+            h_values,
+            my_map,
+            constraint_tables,
+            agents
+        )
+
+        if next_best_move is not None:
+            best_move, heuristic = next_best_move
+
+            # reconfigures the current node for its next move
+            curr_node[ 'best_move' ] = best_move
+            curr_node[ 'h_val' ] = heuristic
+            curr_node[ 'completed_moves' ].append( best_move )
+
+            # re-adds this node to the open list
+            heapq.heappush( open_list, 
+                   (curr_node['g_val'] + weight * curr_node['h_val'], curr_node['h_val'], curr_node['loc'], curr_node))
+            
+        
+    # could not find a valid set of path, return None
+    return None
