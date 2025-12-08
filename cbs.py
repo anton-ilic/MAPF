@@ -15,6 +15,8 @@ from resolvingSolver import (
     extend_path
 )
 
+SHARED_COLLISION_MULT = 100
+
 
 def standard_splitting(collision):
     ##############################
@@ -118,6 +120,32 @@ class CBSSolver(ResolvingSolver):
         """
 
         super().__init__(my_map, starts, goals)
+
+    def get_goal( self, agent, node ):
+
+        # returns the goal for the agent, may be its overal goal or its node specific goal
+        if agent in node[ 'non-goal' ]:
+            return node[ 'non-goal' ][ agent ]
+        else:
+            return self.goals[ 'agent' ]
+
+    def count_overlapping_goals( self, node ):
+        goals_found = []
+        overlapping = 0
+        
+        # loops through each agent
+        for agent in range( self.num_of_agents ):
+
+            # finds its goal
+            agent_goal = self.get_goal( agent, node )
+
+            # either adds it to goals found or increments the overlap counter
+            if agent_goal in goals_found:
+                overlapping += 1
+            else:
+                goals_found.append( agent_goal )
+
+        return overlapping
 
     def push_node(self, node):
         heapq.heappush(self.open_list, (node['cost'], len(node['collisions']), self.num_of_generated, node))
@@ -277,7 +305,7 @@ class CBSSolver(ResolvingSolver):
                 'constraints': [],
                 'paths': releventPaths.copy(),
                 'collisions': [],
-                'non-goal': [] }
+                'non-goal': {} }
         
         """for i in range(self.num_of_agents):  # Find initial path for each agent
             path = a_star(self.my_map, self.starts[i], self.goals[i], self.heuristics[i],
