@@ -1,6 +1,9 @@
 from single_agent_planner import (
     move,
-    build_constraint_table
+    build_constraint_table,
+    is_blocked,
+    is_constrained,
+    check_can_make_constraints
 )
 import heapq
 
@@ -19,6 +22,112 @@ def multi_move( locations, dir ):
         i += 1
 
     return new_locations
+
+def get_total_heuristic( locs, h_values ):
+    total_heuristic = 0
+
+    # sums the heuristic values for each agent based on its location
+    for i, loc in enumerate( locs ):
+        total_heuristic += h_values[ i ][ loc ]
+
+    # returns the total heuristic value for this set of locations
+    return total_heuristic
+
+def is_valid_position( prev_locs, locs, map, constraint_tables, agents, timestep ):
+
+    # loops through each agents, location
+    for i, loc in enumerate( locs ):
+        # checks if this location is blocked on the map
+        if is_blocked( loc, map ):
+            # location is block, therefore invalid
+            return False
+        
+        # check if this location is limited by any constraints
+        if ( is_constrained( 
+                prev_locs[i],
+                loc,
+                timestep,
+                constraint_tables[i],
+                agents[i] )
+        ):
+            # this location violates a constraint, is therefore invalid
+            return False
+        
+        if not (
+            check_can_make_constraints(
+                loc,
+                timestep,
+                agents[i],
+                constraint_tables[i]
+            )
+        ):
+            # this location will make it impossible for this agent to satisfy its positive constraints
+            # it is therefore invalid
+            return False
+    
+
+    return True
+
+def find_next_best_move( node, h_values, map, constraint_tables, agents ):
+    # counts how many agents there are (used to determine move count)
+    agent_count = len( h_values )
+
+    # get the location to move from
+    locs = node[ 'loc' ]
+    best_move = None
+    best_heuristic = None
+
+    # loops for each 5^agent_count possible sets of moves
+    for dir in range( 5 ** agent_count ):
+        if dir in node[ 'completed_moves' ]:
+            # this move has already been expanded, skip this
+            continue
+
+        # gets the new set of locations for this move
+        new_locs = multi_move( locs, dir )
+
+        if not is_valid_position( 
+            locs, 
+            new_locs, 
+            map, 
+            constraint_tables, 
+            agents, 
+            node[ 'time_step' ] + 1 
+        ):
+            # this move is invalid, not point in giving it a heuristic value
+            continue
+
+        # gets the sum of the heuristic values for this location
+        total_h = get_total_heuristic( new_locs, h_values )
+
+        # if there is no best move so far or if this move is better than the current best
+        if best_heuristic is None or best_heuristic > total_h:
+            # update the best move to this move
+            best_heuristic = total_h
+            best_move = dir
+
+    if best_move is None:
+        return None
+    else:
+        return (best_move, best_heuristic)
+
+
+    
+
+def generate_node( locs, timestep, parent, h_values ):
+    node = {
+        'loc': locs.copy(),
+        'g_val': timestep * len( locs ),
+        'h_val': 0,
+        'parent': parent,
+        'time_step': timestep,
+        'completed_moves': [],
+        'best_move': 0
+    }
+
+
+
+
 
 def weight_multi_a_star(
         my_map,
