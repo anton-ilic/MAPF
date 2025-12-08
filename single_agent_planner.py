@@ -114,6 +114,33 @@ def get_path(goal_node):
     path.reverse()
     return path
 
+def is_blocked( loc, map ):
+    if ( loc[ 0 ] < 0 or loc[ 0 ] >= len( map ) or
+         loc[ 1 ] < 0 or loc[ 1 ] >= len( map[ 0 ] ) ):
+        # location is not on map
+        return True
+
+    if map[loc[0]][loc[1]]:
+        # if new location is not in the map, try another
+        return True
+    
+    return False
+
+def print_locations(my_map, locations):
+    starts_map = [[-1 for _ in range(len(my_map[0]))] for _ in range(len(my_map))]
+    for i in range(len(locations)):
+        starts_map[locations[i][0]][locations[i][1]] = i
+    to_print = ''
+    for x in range(len(my_map)):
+        for y in range(len(my_map[0])):
+            if starts_map[x][y] >= 0:
+                to_print += str(starts_map[x][y]) + ' '
+            elif my_map[x][y]:
+                to_print += '@ '
+            else:
+                to_print += '. '
+        to_print += '\n'
+    print(to_print)
 
 # updates the constraint table to move any goal constraints
 # from this timestep to the next
@@ -481,12 +508,7 @@ def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight, 
         for dir in range(5):
             child_loc = move(curr['loc'], dir)
 
-            if ( child_loc[ 0 ] < 0 or child_loc[ 0 ] >= len( my_map ) or
-                 child_loc[ 1 ] < 0 or child_loc[ 1 ] >= len( my_map[ 0 ] ) ):
-                # location is not on map
-                continue
-
-            if my_map[child_loc[0]][child_loc[1]]:
+            if is_blocked( child_loc, my_map ):
                 # if new location is not in the map, try another
                 continue
 

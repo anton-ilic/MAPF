@@ -5,7 +5,9 @@ from single_agent_planner import (
     a_star,
     get_sum_of_cost,
     get_timestep_for_location,
-    move as move_goal
+    move as move_goal,
+    is_blocked,
+    print_locations
 )
 from resolvingSolver import (
     ResolvingSolver,
@@ -15,7 +17,7 @@ from resolvingSolver import (
     extend_path
 )
 
-SHARED_COLLISION_MULT = 100
+SHARED_COLLISION_MULT = 10000
 
 
 def standard_splitting(collision):
@@ -147,6 +149,22 @@ class CBSSolver(ResolvingSolver):
 
         return overlapping
     
+    def find_shared_goal_pair( self, node ):
+        goals_found = []
+
+        for agent in range( self.num_of_agents ):
+
+            # find the agents goal
+            agent_goal = self.get_goal( agent, node )
+
+            if agent_goal in goals_found:
+                # returns a tuple of the two agents that share a goal
+                return (goals_found.index( agent_goal ), agent )
+            else:
+                goals_found.append( agent_goal )
+
+        return None
+    
     def create_node( self, constraints, paths, non_goal, updated_agents ):
         # creates a new node with the parent constraints and the new constraint
         new_node = {
@@ -236,11 +254,14 @@ class CBSSolver(ResolvingSolver):
     # in this case, its impossible for both agents to reach thier goals so
     # we simple drop the end of the path of one agent and wait for the other to move
     # to recalcuate this path
-    def handleSharedGoalCollision( self, collision, node ):
-        location = collision[ "loc" ][0]
+    def handleSharedGoalCollision( self, agents, node ):
 
-        a1 = collision[ 'a1' ]
-        a2 = collision[ 'a2' ]
+        a1 = agents[ 0 ]
+        a2 = agents[ 1 ]
+
+        location = self.get_goal( a1, node )
+
+        print( f"handling shared goals between {a1} and {a2}" )
 
         a1timestep = get_timestep_for_location( node[ 'paths' ][ a1 ], location )
         a2timestep = get_timestep_for_location( node[ 'paths' ][ a2 ], location )
@@ -253,27 +274,32 @@ class CBSSolver(ResolvingSolver):
             priorityAgent = a1
 
 
-        if self.goals[ delayedAgent ] != self.goals[ priorityAgent ] or (
-            delayedAgent in node[ 'non-goal' ] or priorityAgent in node[ 'non-goal' ]
-        ):
+        if self.get_goal( delayedAgent, node ) != self.get_goal( priorityAgent, node ):
             raise RuntimeError( "handleSharedGoalCollision called on non shared goal collision" )
         
-        new_node = {
-            "cost": 0,
-            "constraints": node[ "constraints" ].copy(),
-            "paths": node[ "paths" ].copy(),
-            "collisions": [],
-            "non-goal": node[ 'non-goal' ].copy()
-        }
+        # loops through the 4 possible moves (cannot leave goal in same place)
+        for i in range(4):
+            new_non_goal = node[ "non-goal" ].copy()
 
-        # marks the skipped agent to be updated at the next cycle
-        new_node[ 'non-goal' ].append( delayedAgent )
+            new_goal_loc = move_goal( self.get_goal( delayedAgent, node ), i )
 
-        # calculates cost and collisions on new path
-        new_node[ "cost" ] = get_sum_of_cost( new_node[ "paths" ] )
-        new_node[ "collisions" ] = detect_collisions( new_node[ "paths" ] )
+            if is_blocked( new_goal_loc, self.my_map ):
+                # this goal cannot be navigated to, skip it
+                continue
 
-        self.push_node( new_node )
+            new_non_goal[ delayedAgent ] = new_goal_loc
+            
+            new_node = self.create_node(
+                node[ "constraints" ].copy(),
+                node[ "paths" ].copy(),
+                new_non_goal,
+                [ delayedAgent ]
+            )
+
+            if new_node is None:
+                continue
+
+            self.push_node( new_node )
 
 
 
@@ -347,10 +373,28 @@ class CBSSolver(ResolvingSolver):
             # handle node
             node = self.pop_node()
 
+            print( f'handling node with {self.count_overlapping_goals( node )} overlapping goals' )
+
+            current_goals = []
+            for agent in range( self.num_of_agents ):
+                current_goals.append( self.get_goal( agent, node ) )
+
+            print( f"current goals: {current_goals}" )
+
+            print_locations( self.my_map, current_goals )
+
             if node[ "collisions" ] == []:
                 best_node = node
                 print( "found best!!" )
                 break
+
+            shared_goal_agents = self.find_shared_goal_pair( node )
+
+            if shared_goal_agents is not None:
+                self.handleSharedGoalCollision( shared_goal_agents, node )
+
+                # this node has now been handled, contiue to next iteration
+                continue
 
             # print( f"node has {len( node[ 'collisions' ] )} collisions" )
             # print( f"handling collision {node[ 'collisions' ][ 0 ]} with timestep {timestep}" )
@@ -360,21 +404,10 @@ class CBSSolver(ResolvingSolver):
             # generates a node for the first collision
             collision = node[ "collisions" ][ 0 ]
 
-            print( f"handling collision {collision}" )
-
-            agent1goal = self.goals[ collision[ 'a1' ] ]
-            agent2goal = self.goals[ collision[ 'a2' ] ]
-            collLoc = collision[ 'loc' ][0] if len(collision[ 'loc' ]) == 1 else None
+            # print( f"handling collision {collision}" )
 
             # print( f"a1Goal: {agent1goal}, a2Goal: {agent2goal}, collLoc: {collLoc}")
-
-            if ( collLoc is not None and agent1goal == agent2goal and
-                 not ( collision[ 'a1' ] in node[ 'non-goal' ]  or 
-                       collision[ 'a2' ] in node[ 'non-goal' ] ) ):
-                print( "handling shared goal collision" )
-                self.handleSharedGoalCollision( collision, node )
-            else:
-                self.generate_nodes( collision, node )
+            self.generate_nodes( collision, node )
 
         # adds the found paths onto the existing paths
         for i, path in enumerate( best_node[ "paths" ] ):
