@@ -5,7 +5,7 @@ from single_agent_planner import (
     a_star,
     get_sum_of_cost,
     get_timestep_for_location,
-    search_closest
+    move as move_goal
 )
 from resolvingSolver import (
     ResolvingSolver,
@@ -127,7 +127,7 @@ class CBSSolver(ResolvingSolver):
         if agent in node[ 'non-goal' ]:
             return node[ 'non-goal' ][ agent ]
         else:
-            return self.goals[ 'agent' ]
+            return self.goals[ agent ]
 
     def count_overlapping_goals( self, node ):
         goals_found = []
@@ -146,6 +146,50 @@ class CBSSolver(ResolvingSolver):
                 goals_found.append( agent_goal )
 
         return overlapping
+    
+    def create_node( self, constraints, paths, non_goal, updated_agents ):
+        # creates a new node with the parent constraints and the new constraint
+        new_node = {
+            "cost": 0,
+            "constraints": constraints,
+            "paths": paths,
+            "collisions": [],
+            "non-goal": non_goal,
+        }
+
+        skipped_path = False
+
+        #calculate new paths with new constraints
+        for agent in updated_agents:
+            # calculates the path for the agent
+            path = a_star(
+                self.my_map,
+                self.starts[agent],
+                self.get_goal(agent, new_node),
+                self.heuristics[agent],
+                agent,
+                new_node[ "constraints" ]
+            )
+                    
+            # checks if the path was calculated successfully
+            if path is not None:
+                new_node[ "paths" ][ agent ] = path
+            else:
+                skipped_path = True
+
+            if skipped_path:
+                # if a new path was not calculated for every agent, 
+                # node is invalid, don't return
+                return None
+
+            # calculates cost and collisions on new path
+            new_node[ "cost" ] = (
+                get_sum_of_cost( new_node[ "paths" ] ) +
+                ( SHARED_COLLISION_MULT * self.count_overlapping_goals( new_node ) )
+            )
+            new_node[ "collisions" ] = detect_collisions( new_node[ "paths" ] )
+
+            return new_node
 
     def push_node(self, node):
         heapq.heappush(self.open_list, (node['cost'], len(node['collisions']), self.num_of_generated, node))
@@ -165,62 +209,25 @@ class CBSSolver(ResolvingSolver):
         constr_split = disjoint_splitting( collision )
         
         for constr in constr_split:
-            # creates a new node with the parent constraints and the new constraint
-            new_node = {
-                "cost": 0,
-                "constraints": parent_node[ "constraints" ].copy(),
-                "paths": parent_node[ "paths" ].copy(),
-                "collisions": [],
-                "non-goal": parent_node[ "non-goal" ].copy(),
-            }
-            new_node[ "constraints" ].append( constr )
+            new_constraints = parent_node[ "constraints" ].copy()
+
+            new_constraints.append( constr )
 
             # generates a list of all agents who need to have thier paths recalcuated
             updated_agents = [ constr[ "agent" ] ]
             if "positive" in constr and constr[ "positive" ]:
-                for agent in paths_violate_constraint( constr, new_node[ "paths" ] ):
+                for agent in paths_violate_constraint( constr, parent_node[ "paths" ] ):
                     updated_agents.append( agent )
 
-            skipped_path = False
+            new_node = self.create_node(
+                new_constraints,
+                parent_node[ "paths" ].copy(),
+                parent_node[ "non-goal" ].copy(),
+                updated_agents
+            )
 
-            #calculate new paths with new constraints
-            for agent in updated_agents:
-                # checks if this agent is marked for not arriving at the goal
-                if agent in new_node[ 'non-goal' ]:
-                    path = search_closest( 
-                        self.my_map, 
-                        self.starts[agent], 
-                        self.goals[agent], 
-                        self.heuristics[agent],
-                        agent, 
-                        new_node[ "constraints" ], 
-                        goalDist=self.nonarriveDist
-                    )
-                    print( f"replanned for non-finishing path: {path}\ngoal is: {self.goals[ agent ]}" )
-                else:
-                    path = a_star(
-                        self.my_map,
-                        self.starts[agent],
-                        self.goals[agent],
-                        self.heuristics[agent],
-                        agent,
-                        new_node[ "constraints" ]
-                    )
-                
-                # checks if the path was calculated successfully
-                if path is not None:
-                    new_node[ "paths" ][ agent ] = path
-                else:
-                    skipped_path = True
-
-            if skipped_path:
-                # if a new path was not calculated for every agent, 
-                # don't add this node
+            if new_node is None:
                 continue
-
-            # calculates cost and collisions on new path
-            new_node[ "cost" ] = get_sum_of_cost( new_node[ "paths" ] )
-            new_node[ "collisions" ] = detect_collisions( new_node[ "paths" ] )
 
             self.push_node( new_node )
 
@@ -367,7 +374,7 @@ class CBSSolver(ResolvingSolver):
             self.paths[i] = extend_path( self.paths[i], timestep, path )
 
         # marks the non-goal agents as pending
-        self.pending_agents = best_node[ 'non-goal' ].copy()
+        self.pending_agents = list( best_node[ 'non-goal' ].keys() )
 
         # restores the previous start values
         self.starts = oldStarts.copy()
