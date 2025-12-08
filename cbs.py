@@ -224,7 +224,10 @@ class CBSSolver(ResolvingSolver):
         a1 = collision[ 'a1' ]
         a2 = collision[ 'a2' ]
         
-        constr_split = disjoint_splitting( collision )
+        if disjoint:
+            constr_split = disjoint_splitting( collision )
+        else:
+            constr_split = standard_splitting( collision )
         
         for constr in constr_split:
             new_constraints = parent_node[ "constraints" ].copy()
@@ -304,7 +307,7 @@ class CBSSolver(ResolvingSolver):
 
 
 
-    def resolve_collisions(self, timestep=0):
+    def resolve_collisions(self, timestep=0, disjoint=True):
         """ Finds paths for all agents from their start locations to their goal locations
 
         requires a set of paths in place that may have collisions
@@ -410,7 +413,7 @@ class CBSSolver(ResolvingSolver):
             # print( f"handling collision {collision}" )
 
             # print( f"a1Goal: {agent1goal}, a2Goal: {agent2goal}, collLoc: {collLoc}")
-            self.generate_nodes( collision, node )
+            self.generate_nodes( collision, node, disjoint=disjoint )
 
         # adds the found paths onto the existing paths
         for i, path in enumerate( best_node[ "paths" ] ):

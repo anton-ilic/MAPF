@@ -334,6 +334,9 @@ def focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints, weig
             if constr["timestep"] > last_constr_timestep:
                 last_constr_timestep = constr["timestep"]
 
+    if start_loc not in h_values: # check if start is reachable
+        return None
+
     max_steps = max(h_values[start_loc], last_constr_timestep) + constraint_count
 
     open_list = []
@@ -402,6 +405,10 @@ def focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints, weig
             if not check_can_make_constraints(child_loc, curr["time_step"] + 1, agent, constraint_table):
                 continue
 
+            # Skip if child location is not reachable from goal 
+            if child_loc not in h_values:
+                continue
+
             child = {
                 'loc': child_loc,
                 'g_val': curr['g_val'] + 1,
@@ -461,6 +468,10 @@ def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight, 
     # this approach assumes that each constraint will require 1 additional timestep to handle
     # however, in the case of constraints on the goal location, it may be required to search far after the goal has been reached
     # for this reason, if the last constraint timestep is larger than the heuristic value, its used instead
+
+    # check is start is reachable
+    if start_loc not in h_values:
+        return None
     max_steps = ( max( h_values[ start_loc ], last_constr_timestep ) + constraint_count ) * 5
 
     open_list = []
@@ -498,9 +509,11 @@ def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight, 
                 return get_path(curr)
         else:
             # print( "checking non-goal paths" )
-            if ( ( h_values[ curr[ 'loc' ] ] <= goalDist ) and not
+            
+            # check if curr is reachable
+            if curr['loc'] in h_values and ( h_values[ curr[ 'loc' ] ] <= goalDist ) and not \
                  check_future_constraints( curr[ 'loc' ], curr[ 'time_step' ],
-                                           constraint_table, agent ) ):
+                                           constraint_table, agent ):
                 
                 # returns the path since it goes close enough to the goal
                 return get_path( curr )
@@ -520,6 +533,10 @@ def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight, 
             if not check_can_make_constraints( child_loc, curr[ "time_step" ] + 1,
                                                agent, constraint_table ):
                 # impossible to satisfy positive constraints from this location, skip
+                continue
+
+            #skip if child is not reachable
+            if child_loc not in h_values:
                 continue
 
             child = {'loc': child_loc,
@@ -588,6 +605,9 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, search_typ
     # this approach assumes that each constraint will require 1 additional timestep to handle
     # however, in the case of constraints on the goal location, it may be required to search far after the goal has been reached
     # for this reason, if the last constraint timestep is larger than the heuristic value, its used instead
+    if start_loc not in h_values:
+        return None 
+    
     max_steps = max( h_values[ start_loc ], last_constr_timestep ) + constraint_count
 
     open_list = []
@@ -639,6 +659,9 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, search_typ
             if not check_can_make_constraints( child_loc, curr[ "time_step" ] + 1,
                                                agent, constraint_table ):
                 # impossible to satisfy positive constraints from this location, skip
+                continue
+
+            if child_loc not in h_values:
                 continue
 
             child = {'loc': child_loc,
