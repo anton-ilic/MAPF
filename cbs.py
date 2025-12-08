@@ -379,10 +379,6 @@ class CBSSolver(ResolvingSolver):
             for agent in range( self.num_of_agents ):
                 current_goals.append( self.get_goal( agent, node ) )
 
-            print( f"current goals: {current_goals}" )
-
-            print_locations( self.my_map, current_goals )
-
             if node[ "collisions" ] == []:
                 best_node = node
                 print( "found best!!" )
@@ -392,6 +388,8 @@ class CBSSolver(ResolvingSolver):
 
             if shared_goal_agents is not None:
                 self.handleSharedGoalCollision( shared_goal_agents, node )
+
+                print( f"handled shared goals between agents {shared_goal_agents[0]} and {shared_goal_agents[1]}" )
 
                 # this node has now been handled, contiue to next iteration
                 continue
@@ -403,6 +401,11 @@ class CBSSolver(ResolvingSolver):
 
             # generates a node for the first collision
             collision = node[ "collisions" ][ 0 ]
+
+            print( f"handling collision {collision}" )
+
+            for agent, path in enumerate( node[ "paths" ] ):
+                print( f"path for agent {agent}: {path}" )
 
             # print( f"handling collision {collision}" )
 
