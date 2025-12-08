@@ -35,6 +35,22 @@ def get_total_heuristic( locs, h_values ):
     # returns the total heuristic value for this set of locations
     return total_heuristic
 
+def other_agent_occupying( loc, list, index ):
+    for i, list_loc in enumerate( list ):
+        if i != index and list_loc == loc:
+            return True
+        
+    return False
+
+def traded_locations( locs, prev_locs, index ):
+    curr_loc = locs[ index ]
+    for i, prev_loc in enumerate( prev_locs ):
+        if i != index and prev_loc == curr_loc and locs[i] == prev_locs[index]:
+            # agent i and agent index traded places last timestep, this is invalid
+            return True
+        
+    return False
+
 def is_valid_position( prev_locs, locs, map, constraint_tables, agents, timestep ):
 
     # loops through each agents, location
@@ -42,6 +58,16 @@ def is_valid_position( prev_locs, locs, map, constraint_tables, agents, timestep
         # checks if this location is blocked on the map
         if is_blocked( loc, map ):
             # location is block, therefore invalid
+            return False
+        
+        # check if another agent is occupying this location
+        if other_agent_occupying( loc, locs, i ):
+            # overlaps with another agent, therefore invalid
+            return False
+        
+        # check if another agent occupied this location last turn
+        if traded_locations( locs, prev_locs, i ):
+            # trades places with another agent, therefore invalid
             return False
         
         # check if this location is limited by any constraints
@@ -166,7 +192,7 @@ def get_paths( goal_node ):
     paths = []
 
     # loops through each agent with a path
-    for i in len( goal_node[ 'loc' ] ):
+    for i in range( len( goal_node[ 'loc' ] ) ):
 
         curr_path = []
         curr_node = goal_node
@@ -198,8 +224,12 @@ def weight_multi_a_star(
 
     # builds a constraint table for each agent in the search.
     # may have different constraints for each agent
-    for i, constraint_list in enumerate( constraints ):
-        constraint_tables.append( build_constraint_table( constraint_list, agents[ i ] ) )
+    for i in range( len( start_locs ) ):
+        if i < len( constraints ):
+            constraint_list = constraints[i]
+            constraint_tables.append( build_constraint_table( constraint_list, agents[ i ] ) )
+        else:
+            constraint_tables.append( {} )
 
 
     max_constraint_count = 0
@@ -268,11 +298,13 @@ def weight_multi_a_star(
     # updates the constraints tables
     for table in constraint_tables:
         # pushes forward the goal constraints for each agent
-        propogate_constraints( curr_node[ 'time_step' ] + 1, table )
+        propogate_constraints( 0, table )
     
     while len(open_list) > 0:
         # gets the next best node to check
         _, _, _, curr_node = heapq.heappop( open_list )
+
+        print( f"checking node at locations: {curr_node['loc']}" )
 
         if curr_node[ 'time_step' ] > max_steps:
             # this node is too deep in the tree, purge it
@@ -288,7 +320,7 @@ def weight_multi_a_star(
             goal_locs,
             constraint_tables,
             agents,
-            curr_node[ 'timestep' ]
+            curr_node[ 'time_step' ]
         ):
             # this is a goal configuration! 
             return get_paths( curr_node )
@@ -312,8 +344,8 @@ def weight_multi_a_star(
         if child_node is not None:
             
             # checks if this configuration is in the closed list
-            if not ( tuple( child_node[ 'loc' ] ), child_node[ 'timestep' ] ) in closed_list:
-                closed_list[ ( tuple( child_node[ 'loc' ] ), child_node[ 'timestep' ] ) ] = child_node
+            if not ( tuple( child_node[ 'loc' ] ), child_node[ 'time_step' ] ) in closed_list:
+                closed_list[ ( tuple( child_node[ 'loc' ] ), child_node[ 'time_step' ] ) ] = child_node
 
                 heapq.heappush( open_list, 
                    (child_node['g_val'] + weight * child_node['h_val'], child_node['h_val'], child_node['loc'], child_node))
