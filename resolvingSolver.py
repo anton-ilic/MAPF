@@ -134,13 +134,13 @@ works by generating a set of paths with collisions and then resolving the collis
 requires the abstract function `resolve_collisions` to be defined
 """
 class ResolvingSolver(MAPFSolver):
-    def __init__(self, my_map, starts, goals):
+    def __init__(self, my_map, starts, goals, final):
         """my_map   - list of lists specifying obstacle positions
         starts      - [(x1, y1), (x2, y2), ...] list of start locations
         goals       - [(x1, y1), (x2, y2), ...] list of goal locations
         """
 
-        super().__init__(my_map, starts, goals)
+        super().__init__(my_map, starts, goals, final)
 
         self.paths = []
 
@@ -225,8 +225,11 @@ class ResolvingSolver(MAPFSolver):
 
         self.pending_agents = []
 
-    def update_goal(self, agent, goal, timestep):
+    def update_goal(self, agent, goal, timestep, final):
         self.goals[ agent ] = goal
+
+        # marks whether this goal is final or not
+        self.final_goals[ agent ] = final
 
         self.start_time = timer.time()
 

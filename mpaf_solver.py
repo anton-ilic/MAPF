@@ -7,11 +7,14 @@ A class for any solver used for multi-agent pathfinding problems
 class MAPFSolver(object):
 
     # initializes the MAPFSOlver with a MAPF problem
-    def __init__(self, my_map, starts, goals):
+    def __init__(self, my_map, starts, goals, final):
         self.my_map = my_map
         self.starts = starts
         self.goals = goals
         self.num_of_agents = len(goals)
+
+        # creates a list of whether or not these goals are final
+        self.final_goals = [ final ] * self.num_of_agents
 
         self.start_time = 0
 
@@ -23,7 +26,8 @@ class MAPFSolver(object):
 
     # takes a given agent and updates thier goal location to the new passed goal
     # expands all paths from the passed timestep
-    def update_goal(self, agent, goal, timestep):
+    # assumes new goal is only temporary unless goal marked as final
+    def update_goal(self, agent, goal, timestep, final):
         pass
 
     # prints the results of the search

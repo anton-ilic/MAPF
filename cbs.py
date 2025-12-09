@@ -17,6 +17,21 @@ from resolvingSolver import (
     extend_path
 )
 
+def find_shortest_non_final_path( paths, final_goals ):
+    shortest_path_len = None
+    shortest_path = None
+
+    for agent, path in enumerate( paths ):
+        if not final_goals[ agent ]:
+            if shortest_path is None or shortest_path_len < len( path ):
+                shortest_path_len = len( path )
+                shortest_path = agent
+
+    if shortest_path is not None:
+        return (shortest_path, agent)
+    else:
+        return None
+
 SHARED_COLLISION_MULT = 10000
 
 
@@ -115,13 +130,13 @@ def disjoint_splitting(collision):
 class CBSSolver(ResolvingSolver):
     """The high-level search of CBS."""
 
-    def __init__(self, my_map, starts, goals):
+    def __init__(self, my_map, starts, goals, final):
         """my_map   - list of lists specifying obstacle positions
         starts      - [(x1, y1), (x2, y2), ...] list of start locations
         goals       - [(x1, y1), (x2, y2), ...] list of goal locations
         """
 
-        super().__init__(my_map, starts, goals)
+        super().__init__(my_map, starts, goals, final)
 
     def get_goal( self, agent, node ):
 
@@ -173,6 +188,7 @@ class CBSSolver(ResolvingSolver):
             "paths": paths,
             "collisions": [],
             "non-goal": non_goal,
+            "shortest_non_path": None
         }
 
         skipped_path = False
@@ -205,12 +221,34 @@ class CBSSolver(ResolvingSolver):
             get_sum_of_cost( new_node[ "paths" ] ) +
             ( SHARED_COLLISION_MULT * self.count_overlapping_goals( new_node ) )
         )
-        new_node[ "collisions" ] = detect_collisions( new_node[ "paths" ] )
+        collision_list = detect_collisions( new_node[ "paths" ] )
+
+        # gets the agent with the shortest non-final path
+        shortest_path = find_shortest_non_final_path( new_node[ "paths" ], self.final_goals )
+        if shortest_path is not None:
+            new_node[ 'shortest_non_path' ] = shortest_path[ 0 ]
+
+            # clears any collisions that happend after the end of the shortest non-final path
+            # these collisions aren't relevant as they'll be recalculated with the next cycle
+            offset = 0
+            to_remove = []
+            for i, col in enumerate( collision_list ):
+                if col[ "timestep" ] > shortest_path[1] + 1:
+                    # this collision occurs after the next recalculation cycle
+                    to_remove.append( i - offset )
+                    # need to track offset to account for indexes changing
+                    offset += 1
+
+            for index in to_remove:
+                # removes each marked index from the collision list
+                collision_list.pop( index )
+
+        new_node[ "collisions" ] = collision_list
 
         return new_node
 
     def push_node(self, node):
-        heapq.heappush(self.open_list, (node['cost'], len(node['collisions']), self.num_of_generated, node))
+        heapq.heappush(self.open_list, (len(node['collisions']), node['cost'], self.num_of_generated, node))
         # print("Generate node {}".format(self.num_of_generated))
         self.num_of_generated += 1
 

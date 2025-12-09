@@ -202,14 +202,16 @@ class Animation:
                         if self.agents[a].center == self.pickup:
 
                             # agent should pick up package and go to its dropoff point
+                            returning = False
                             if len( self.sequence ) > 0:
                                 self.currentPackage[a] = self.sequence.pop( 0 )
                                 newGoal = self.dropoffs[ self.currentPackage[ a ] ]
                                 self.agent_names[ a ].set_text( f"{a}({self.currentPackage[a]})")
                             else:
                                 newGoal = self.starts[a]
+                                returning = True
                             newGoal = self.convertToSearchSpace( newGoal )
-                            newPaths = self.solver.update_goal(a, newGoal, step + 1)
+                            newPaths = self.solver.update_goal(a, newGoal, step + 1, returning)
                             self.installPaths(newPaths)
 
                     else:
@@ -217,13 +219,15 @@ class Animation:
 
                             # agent should drop off package and go to pickup point
                             self.currentPackage[a] = None
+                            returning = False
                             if len(self.sequence) > 0:
                                 newGoal = self.pickup
                             else:
                                 newGoal = self.starts[a]
+                                returning = True
                             self.agent_names[ a ].set_text( f"{a}")
                             newGoal = self.convertToSearchSpace( newGoal )
-                            newPaths = self.solver.update_goal(a, newGoal, step + 1)
+                            newPaths = self.solver.update_goal(a, newGoal, step + 1, returning)
                             self.installPaths(newPaths)
             self.updateSequenceText()
 

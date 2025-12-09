@@ -116,7 +116,7 @@ if __name__ == '__main__':
             solver = IndivSolver( my_map, starts, initial_goals )
         elif args.solver == "CBS":
             print( "***Run CBS***" )
-            solver = CBSSolver( my_map, starts, initial_goals )
+            solver = CBSSolver( my_map, starts, initial_goals, False )
         elif args.solver == "LNS":
             print( "***Run Large Neighbourhood Search***" )
             solver = LargeNeighbourhoodSolver( my_map, starts, initial_goals )
