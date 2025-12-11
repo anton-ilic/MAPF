@@ -100,7 +100,6 @@ def find_independant_goals( starts, goals, h_values, map ):
             return None
         
         new_goals[ agent ] = new_goal
-        
 
     goal_shifts = {}
 
