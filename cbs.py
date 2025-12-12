@@ -1,6 +1,7 @@
 import time as timer
 import heapq
 import random
+from goal_search import find_independant_goals
 from single_agent_planner import ( 
     a_star,
     get_sum_of_cost,
@@ -23,12 +24,12 @@ def find_shortest_non_final_path( paths, final_goals ):
 
     for agent, path in enumerate( paths ):
         if not final_goals[ agent ]:
-            if shortest_path is None or shortest_path_len < len( path ):
+            if shortest_path is None or shortest_path_len > len( path ):
                 shortest_path_len = len( path )
                 shortest_path = agent
 
     if shortest_path is not None:
-        return (shortest_path, agent)
+        return ( shortest_path, shortest_path_len )
     else:
         return None
 
@@ -223,25 +224,39 @@ class CBSSolver(ResolvingSolver):
         )
         collision_list = detect_collisions( new_node[ "paths" ] )
 
+        # creates a list where if the value is false the paths will be recalculated when that agent
+        # reaches its goal
+        full_finals = self.final_goals.copy()
+
+        # marks agents going to a temporary goal as non-final (they will be recalculated at that time)
+        for agent in non_goal.keys():
+            full_finals[ agent ] = True
+
         # gets the agent with the shortest non-final path
         shortest_path = find_shortest_non_final_path( new_node[ "paths" ], self.final_goals )
+
+        # print( f"shortest_non_final_path {shortest_path}" )
         if shortest_path is not None:
+
+            trimmed_collision_list = []
+
+
+            print( f"shortest_path_length: {shortest_path[ 1 ]}" )
+            print( f"pre_trimming list: {[ col[ 'timestep' ] for col in collision_list ]}" )
             new_node[ 'shortest_non_path' ] = shortest_path[ 0 ]
 
             # clears any collisions that happend after the end of the shortest non-final path
             # these collisions aren't relevant as they'll be recalculated with the next cycle
-            offset = 0
-            to_remove = []
-            for i, col in enumerate( collision_list ):
-                if col[ "timestep" ] > shortest_path[1] + 1:
-                    # this collision occurs after the next recalculation cycle
-                    to_remove.append( i - offset )
-                    # need to track offset to account for indexes changing
-                    offset += 1
+            for col in collision_list:
+                if col[ "timestep" ] <= shortest_path[1] + 3:
+                    trimmed_collision_list.append( col.copy() )
 
-            for index in to_remove:
-                # removes each marked index from the collision list
-                collision_list.pop( index )
+                else:
+                    print( f"dropping colision {col}")
+
+            collision_list = trimmed_collision_list.copy()
+
+        print( f"post_trimming list: {[ col[ 'timestep' ] for col in collision_list ]}" )
 
         new_node[ "collisions" ] = collision_list
 
@@ -361,11 +376,28 @@ class CBSSolver(ResolvingSolver):
         oldStarts = self.starts.copy()
         self.starts = []
 
+        print( f"recalculating for timestep: {timestep}")
+
+        # print( f"timestep {timestep}" )
+        # for i, path in enumerate(  self.paths ):
+            # print( f"agent {i} path: {path}" )
+
         for path in self.paths:
             # splits the path and adds it to the relevant potions
             releventPaths.append( split_path( path, timestep ) )
             # writes the new start location
             self.starts.append( releventPaths[-1][0] )
+
+        print( f"goals before resolve: {self.goals}" )
+
+        resolved_overlapping_goals = find_independant_goals(
+            [ path[0] for path in releventPaths ],
+            self.goals,
+            self.heuristics,
+            self.my_map
+        )
+
+        print( f"goals after resolve: {self.goals}" )
 
         # Generate the root node
         # constraints   - list of constraints
@@ -375,22 +407,9 @@ class CBSSolver(ResolvingSolver):
         root = self.create_node(
             [],
             releventPaths.copy(),
-            {},
+            resolved_overlapping_goals,
             []
         )
-
-        """root = {'cost': 0,
-                'constraints': [],
-                'paths': releventPaths.copy(),
-                'collisions': [],
-                'non-goal': {} }"""
-        
-        """for i in range(self.num_of_agents):  # Find initial path for each agent
-            path = a_star(self.my_map, self.starts[i], self.goals[i], self.heuristics[i],
-                          i, root['constraints'])
-            if path is None:
-                raise BaseException('No solutions')
-            root['paths'].append(path)"""
 
         #root['cost'] = get_sum_of_cost(root['paths'])
         #root['collisions'] = detect_collisions(root['paths'])
@@ -422,15 +441,15 @@ class CBSSolver(ResolvingSolver):
                 print( "found best!!" )
                 break
 
-            shared_goal_agents = self.find_shared_goal_pair( node )
+            #shared_goal_agents = self.find_shared_goal_pair( node )
 
-            if shared_goal_agents is not None:
+            """if shared_goal_agents is not None:
                 self.handleSharedGoalCollision( shared_goal_agents, node )
 
                 print( f"handled shared goals between agents {shared_goal_agents[0]} and {shared_goal_agents[1]}" )
 
                 # this node has now been handled, contiue to next iteration
-                continue
+                continue"""
 
             # print( f"node has {len( node[ 'collisions' ] )} collisions" )
             # print( f"handling collision {node[ 'collisions' ][ 0 ]} with timestep {timestep}" )
@@ -442,8 +461,8 @@ class CBSSolver(ResolvingSolver):
 
             print( f"handling collision {collision}" )
 
-            for agent, path in enumerate( node[ "paths" ] ):
-                print( f"path for agent {agent}: {path}" )
+            #for agent, path in enumerate( node[ "paths" ] ):
+             #   print( f"path for agent {agent}: {path}" )
 
             # print( f"handling collision {collision}" )
 
@@ -455,7 +474,12 @@ class CBSSolver(ResolvingSolver):
             self.paths[i] = extend_path( self.paths[i], timestep, path )
 
         # marks the non-goal agents as pending
-        self.pending_agents = list( best_node[ 'non-goal' ].keys() )
+        for pending_agent in best_node[ 'non-goal' ].keys():
+            self.mark_agent_for_updates( pending_agent )
+
+        shortest_path = find_shortest_non_final_path( self.paths, self.final_goals )
+
+        print( f"next calculation timestep: {shortest_path}" )
 
         # restores the previous start values
         self.starts = oldStarts.copy()
