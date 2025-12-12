@@ -120,8 +120,12 @@ if __name__ == '__main__':
             solver = IndivSolver( my_map, starts, initial_goals )
         elif args.solver == "CBS":
             print( "***Run CBS***" )
+            # Convert search_type=0 to None for standard A*
+            search_type = None if args.search_type == 0 else args.search_type
+            # Only use weight if search_type is specified (1 or 2)
+            weight = args.weight if search_type is not None else None
             solver = CBSSolver( my_map, starts, initial_goals, False,
-                                args.search_type, args.weight )
+                                search_type, weight )
         elif args.solver == "LNS":
             print( "***Run Large Neighbourhood Search***" )
             solver = LargeNeighbourhoodSolver( my_map, starts, initial_goals )
