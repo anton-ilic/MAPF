@@ -199,6 +199,23 @@ class ResolvingSolver(MAPFSolver):
     def is_marked_for_updates( self, agent ):
         return agent in self.pending_agents
     
+    def find_shortest_non_final_path(self):
+        """
+        Finds the length of the shortest path among agents that are marked as non-goal/pending.
+        Returns the timestep of the shortest non-final path, or None if no agents are pending.
+        """
+        if not self.pending_agents:
+            return None
+        
+        shortest_length = float('inf')
+        for agent in self.pending_agents:
+            if agent < len(self.paths):
+                path_length = len(self.paths[agent])
+                if path_length < shortest_length:
+                    shortest_length = path_length
+        
+        return shortest_length if shortest_length != float('inf') else None
+    
     # calculates conflicting paths for all plending agents
     def get_paths_for_pending_agents( self, timestep ):
 
