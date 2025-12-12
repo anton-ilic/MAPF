@@ -138,7 +138,7 @@ class Animation:
         self.animation = animation.FuncAnimation(self.fig, self.animate_func,
                                                  init_func=self.init_func,
                                                  frames=self.duration * 10,
-                                                 interval=100,
+                                                 interval=10,
                                                  blit=True,
                                                  repeat=False)
         
