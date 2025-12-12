@@ -15,26 +15,12 @@ from resolvingSolver import (
     detect_collisions,
     paths_violate_constraint,
     split_path,
-    extend_path
+    extend_path,
+    find_shortest_non_final_path,
+    find_first_goal
 )
 
-def find_shortest_non_final_path( paths, final_goals ):
-    shortest_path_len = None
-    shortest_path = None
-
-    for agent, path in enumerate( paths ):
-        if not final_goals[ agent ]:
-            if shortest_path is None or shortest_path_len > len( path ):
-                shortest_path_len = len( path )
-                shortest_path = agent
-
-    if shortest_path is not None:
-        return ( shortest_path, shortest_path_len )
-    else:
-        return None
-
 SHARED_COLLISION_MULT = 10000
-
 
 def standard_splitting(collision):
     ##############################
@@ -126,6 +112,16 @@ def disjoint_splitting(collision):
     else:
         raise BaseException( "unknown number of locations in collision: "
               f"{len( collision['loc'] )}, {collision['loc']}" )
+    
+def calcuate_path_cost( paths, goals, unfinished ):
+
+    total = 0
+
+    for agent, path in enumerate( paths ):
+        if agent not in unfinished:
+            total += find_first_goal( path, goals[ agent ] )
+
+    return total
 
 
 class CBSSolver(ResolvingSolver):
@@ -220,10 +216,12 @@ class CBSSolver(ResolvingSolver):
             return None
 
         # calculates cost and collisions on new path
-        new_node[ "cost" ] = (
-            get_sum_of_cost( new_node[ "paths" ] ) +
-            ( SHARED_COLLISION_MULT * self.count_overlapping_goals( new_node ) )
-        )
+        # new_node[ "cost" ] = (
+            # get_sum_of_cost( new_node[ "paths" ] ) +
+            # ( SHARED_COLLISION_MULT * self.count_overlapping_goals( new_node ) )
+        # )
+        new_node[ "cost" ] = calcuate_path_cost( new_node[ "paths" ], self.goals, list( new_node[ 'non-goal' ].keys() ))
+
         collision_list = detect_collisions( new_node[ "paths" ] )
 
         # creates a list where if the value is false the paths will be recalculated when that agent
@@ -234,11 +232,20 @@ class CBSSolver(ResolvingSolver):
         for agent in non_goal.keys():
             full_finals[ agent ] = True
 
+        for agent in range( self.num_of_agents ):
+            if not full_finals[ agent ]:
+                print( f'nfp: {agent}->{self.goals[agent]}: {new_node["paths"][agent]}')
+
         # gets the agent with the shortest non-final path
-        shortest_path = find_shortest_non_final_path( new_node[ "paths" ], self.final_goals )
+        shortest_path = find_shortest_non_final_path( new_node[ "paths" ], full_finals, self.goals )
 
         # print( f"shortest_non_final_path {shortest_path}" )
         if shortest_path is not None:
+
+            print( f"shortest path length: {shortest_path[1]}")
+            print( f"shortest path: {new_node[ "paths" ][ shortest_path[0]]}")
+
+            print( f"pre-trimmed collisions: {[col[ 'timestep' ] for col in collision_list]}")
 
             trimmed_collision_list = []
 
@@ -247,10 +254,15 @@ class CBSSolver(ResolvingSolver):
             # clears any collisions that happend after the end of the shortest non-final path
             # these collisions aren't relevant as they'll be recalculated with the next cycle
             for col in collision_list:
-                if col[ "timestep" ] <= shortest_path[1] + 1:
+                if col[ "timestep" ] <= shortest_path[1] + 2:
                     trimmed_collision_list.append( col.copy() )
 
             collision_list = trimmed_collision_list.copy()
+
+        else:
+            print( "no shortest path found: no trimming" )
+
+        print( f"post-trimmed collisions: {[col[ 'timestep' ] for col in collision_list]}")
 
         new_node[ "collisions" ] = collision_list
 
@@ -451,7 +463,7 @@ class CBSSolver(ResolvingSolver):
             # generates a node for the first collision
             collision = node[ "collisions" ][ 0 ]
 
-            # print( f"handling collision {collision}" )
+            print( f"handling collision {collision}" )
 
             #for agent, path in enumerate( node[ "paths" ] ):
              #   print( f"path for agent {agent}: {path}" )
@@ -468,6 +480,20 @@ class CBSSolver(ResolvingSolver):
         # marks the non-goal agents as pending
         for pending_agent in best_node[ 'non-goal' ].keys():
             self.mark_agent_for_updates( pending_agent )
+
+                
+        # creates a list where if the value is false the paths will be recalculated when that agent
+        # reaches its goal
+        full_finals = self.final_goals.copy()
+
+        # marks agents going to a temporary goal as non-final (they will be recalculated at that time)
+        for agent in best_node[ 'non-goal' ].keys():
+            full_finals[ agent ] = True
+
+        #print( "shortest path is" 
+              #f"{find_shortest_non_final_path(self.paths, full_finals)}")
+
+        print( f"finished calculating for timestep: {timestep}")
 
         # restores the previous start values
         self.starts = oldStarts.copy()
