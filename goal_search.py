@@ -22,8 +22,6 @@ def find_unqiue_location_for_goal( start, agent_goal, goals, h_values, agent_num
         "start_dist": taxicab_dist( agent_goal, start )
     }
 
-    print( f"adding:\n{calc_goal_node_heuristic(root_node)}\nwtih node:\n{root_node}")
-
     # adds the node to the open list
     heapq.heappush( open_list, (
         calc_goal_node_heuristic( root_node ),

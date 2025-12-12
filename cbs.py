@@ -240,9 +240,6 @@ class CBSSolver(ResolvingSolver):
 
             trimmed_collision_list = []
 
-
-            print( f"shortest_path_length: {shortest_path[ 1 ]}" )
-            print( f"pre_trimming list: {[ col[ 'timestep' ] for col in collision_list ]}" )
             new_node[ 'shortest_non_path' ] = shortest_path[ 0 ]
 
             # clears any collisions that happend after the end of the shortest non-final path
@@ -251,12 +248,7 @@ class CBSSolver(ResolvingSolver):
                 if col[ "timestep" ] <= shortest_path[1] + 3:
                     trimmed_collision_list.append( col.copy() )
 
-                else:
-                    print( f"dropping colision {col}")
-
             collision_list = trimmed_collision_list.copy()
-
-        print( f"post_trimming list: {[ col[ 'timestep' ] for col in collision_list ]}" )
 
         new_node[ "collisions" ] = collision_list
 
@@ -307,6 +299,8 @@ class CBSSolver(ResolvingSolver):
     # in this case, its impossible for both agents to reach thier goals so
     # we simple drop the end of the path of one agent and wait for the other to move
     # to recalcuate this path
+    #
+    # THIS FUNCTION IS UNUSED!
     def handleSharedGoalCollision( self, agents, node ):
 
         a1 = agents[ 0 ]
@@ -388,16 +382,12 @@ class CBSSolver(ResolvingSolver):
             # writes the new start location
             self.starts.append( releventPaths[-1][0] )
 
-        print( f"goals before resolve: {self.goals}" )
-
         resolved_overlapping_goals = find_independant_goals(
             [ path[0] for path in releventPaths ],
             self.goals,
             self.heuristics,
             self.my_map
         )
-
-        print( f"goals after resolve: {self.goals}" )
 
         # Generate the root node
         # constraints   - list of constraints
@@ -430,7 +420,7 @@ class CBSSolver(ResolvingSolver):
             # handle node
             node = self.pop_node()
 
-            print( f'handling node with {self.count_overlapping_goals( node )} overlapping goals' )
+            # print( f'handling node with {self.count_overlapping_goals( node )} overlapping goals' )
 
             current_goals = []
             for agent in range( self.num_of_agents ):
@@ -459,7 +449,7 @@ class CBSSolver(ResolvingSolver):
             # generates a node for the first collision
             collision = node[ "collisions" ][ 0 ]
 
-            print( f"handling collision {collision}" )
+            # print( f"handling collision {collision}" )
 
             #for agent, path in enumerate( node[ "paths" ] ):
              #   print( f"path for agent {agent}: {path}" )
@@ -476,10 +466,6 @@ class CBSSolver(ResolvingSolver):
         # marks the non-goal agents as pending
         for pending_agent in best_node[ 'non-goal' ].keys():
             self.mark_agent_for_updates( pending_agent )
-
-        shortest_path = find_shortest_non_final_path( self.paths, self.final_goals )
-
-        print( f"next calculation timestep: {shortest_path}" )
 
         # restores the previous start values
         self.starts = oldStarts.copy()
