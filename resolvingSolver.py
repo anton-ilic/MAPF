@@ -134,19 +134,19 @@ works by generating a set of paths with collisions and then resolving the collis
 requires the abstract function `resolve_collisions` to be defined
 """
 class ResolvingSolver(MAPFSolver):
-    def __init__(self, my_map, starts, goals):
+    def __init__(self, my_map, starts, goals, final):
         """my_map   - list of lists specifying obstacle positions
         starts      - [(x1, y1), (x2, y2), ...] list of start locations
         goals       - [(x1, y1), (x2, y2), ...] list of goal locations
         """
 
-        super().__init__(my_map, starts, goals)
+        super().__init__(my_map, starts, goals, final)
 
         self.paths = []
 
         # for agents that can't make it to the goal, allows them to be
         # n steps away from the goal instead
-        self.nonarriveDist = int( ( self.num_of_agents / 4 ) + 1 )
+        self.nonarriveDist = int( self.num_of_agents - 1 )
 
         # stores any agents that need new paths in a later update
         self.pending_agents = []
@@ -199,6 +199,23 @@ class ResolvingSolver(MAPFSolver):
     def is_marked_for_updates( self, agent ):
         return agent in self.pending_agents
     
+    def find_shortest_non_final_path(self):
+        """
+        Finds the length of the shortest path among agents that are marked as non-goal/pending.
+        Returns the timestep of the shortest non-final path, or None if no agents are pending.
+        """
+        if not self.pending_agents:
+            return None
+        
+        shortest_length = float('inf')
+        for agent in self.pending_agents:
+            if agent < len(self.paths):
+                path_length = len(self.paths[agent])
+                if path_length < shortest_length:
+                    shortest_length = path_length
+        
+        return shortest_length if shortest_length != float('inf') else None
+    
     # calculates conflicting paths for all plending agents
     def get_paths_for_pending_agents( self, timestep ):
 
@@ -225,8 +242,11 @@ class ResolvingSolver(MAPFSolver):
 
         self.pending_agents = []
 
-    def update_goal(self, agent, goal, timestep):
+    def update_goal(self, agent, goal, timestep, final):
         self.goals[ agent ] = goal
+
+        # marks whether this goal is final or not
+        self.final_goals[ agent ] = final
 
         self.start_time = timer.time()
 

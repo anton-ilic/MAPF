@@ -6,6 +6,7 @@ from visualize import Animation
 from single_agent_planner import get_sum_of_cost
 
 from cbs import CBSSolver
+from maa_sorter import MAASolver
 
 SOLVER = "CBS"
 
@@ -110,10 +111,17 @@ if __name__ == '__main__':
         """cost = get_sum_of_cost(paths)
         result_file.write("{},{}\n".format(file, cost))"""
 
+        if args.solver == "CBS":
+            solver = CBSSolver(my_map, starts, goals)
+        elif args.solver == "MAA":
+            solver = MAASolver(my_map, starts, goals)
+        else:
+            raise RuntimeError( "Unknown solver!")
+
 
         if not args.batch:
             print("***Test paths on a simulation***")
-            animation = Animation(my_map, starts, goals, CBSSolver(my_map, starts, goals))
+            animation = Animation(my_map, starts, goals, solver)
             # animation.save("output.mp4", 1.0)
             animation.show()
     result_file.close()

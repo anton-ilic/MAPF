@@ -114,6 +114,33 @@ def get_path(goal_node):
     path.reverse()
     return path
 
+def is_blocked( loc, map ):
+    if ( loc[ 0 ] < 0 or loc[ 0 ] >= len( map ) or
+         loc[ 1 ] < 0 or loc[ 1 ] >= len( map[ 0 ] ) ):
+        # location is not on map
+        return True
+
+    if map[loc[0]][loc[1]]:
+        # if new location is not in the map, try another
+        return True
+    
+    return False
+
+def print_locations(my_map, locations):
+    starts_map = [[-1 for _ in range(len(my_map[0]))] for _ in range(len(my_map))]
+    for i in range(len(locations)):
+        starts_map[locations[i][0]][locations[i][1]] = i
+    to_print = ''
+    for x in range(len(my_map)):
+        for y in range(len(my_map[0])):
+            if starts_map[x][y] >= 0:
+                to_print += str(starts_map[x][y]) + ' '
+            elif my_map[x][y]:
+                to_print += '@ '
+            else:
+                to_print += '. '
+        to_print += '\n'
+    print(to_print)
 
 # updates the constraint table to move any goal constraints
 # from this timestep to the next
@@ -224,7 +251,13 @@ def check_can_make_constraints( loc, current_time, agent, constraint_table:dict 
 
 # checks the constraint table for any future vertex constraints on being in this location
 # returns True if there is a constraint on loc in the future
-def check_future_constraints( loc, current_time, constraint_table:dict ):
+def check_future_constraints( loc, current_time, constraint_table:dict, agent ):
+    next_future_constr = find_next_positive_constraint( current_time, agent, constraint_table )
+
+    # if next_future_constr is not None:
+        # there is a future positive constraint that must be handled so this goal cannot be accepted
+        # return True
+
     for ( time, constraint_list ) in constraint_table.items():
         if time < current_time:
             continue
@@ -254,6 +287,28 @@ def pop_node(open_list):
 def compare_nodes(n1, n2):
     """Return true is n1 is better than n2."""
     return n1['g_val'] + n1['h_val'] < n2['g_val'] + n2['h_val']
+
+def search_closest(my_map, start_loc, goal_loc, h_values, agent, constraints, search_type=None, weight=None, goalDist=100):
+    path = None
+    dist = 1
+
+    while path is None and dist <= goalDist:
+        path = a_star(
+                my_map,
+                start_loc,
+                goal_loc,
+                h_values,
+                agent,
+                constraints,
+                search_type,
+                weight,
+                dist
+        )
+        
+        # increases dist to check for next distance
+        dist += 1
+
+    return path
 
 def focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints, weight=1.5):
     """ my_map      - binary obstacle map
@@ -329,7 +384,7 @@ def focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints, weig
         propogate_constraints(curr['time_step'], constraint_table)
 
         if curr['loc'] == goal_loc:
-            if not check_future_constraints(curr['loc'], curr['time_step'], constraint_table):
+            if not check_future_constraints(curr['loc'], curr['time_step'], constraint_table, agent):
                 return get_path(curr)
 
         for dir in range(5):
@@ -406,13 +461,12 @@ def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight, 
     # this approach assumes that each constraint will require 1 additional timestep to handle
     # however, in the case of constraints on the goal location, it may be required to search far after the goal has been reached
     # for this reason, if the last constraint timestep is larger than the heuristic value, its used instead
-    max_steps = max( h_values[ start_loc ], last_constr_timestep ) + constraint_count
+    max_steps = ( max( h_values[ start_loc ], last_constr_timestep ) + constraint_count ) * 5
 
     open_list = []
     # keyed using cell location and timestep
     # agents can be in the same location at different times
     closed_list = dict()
-    earliest_goal_timestep = 0
     h_value = h_values[start_loc]
     root = {'loc': start_loc, 'g_val': 0, 'h_val': h_value, 'parent': None, 'time_step': 0 }
     
@@ -438,14 +492,14 @@ def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight, 
         if goalDist == 0:
             if ( curr['loc'] == goal_loc and not 
                 check_future_constraints( curr[ 'loc' ], curr[ 'time_step' ], 
-                                        constraint_table ) ):
+                                        constraint_table, agent ) ):
                 # returns the path if the goal is found
                 return get_path(curr)
         else:
             # print( "checking non-goal paths" )
             if ( ( h_values[ curr[ 'loc' ] ] <= goalDist ) and not
                  check_future_constraints( curr[ 'loc' ], curr[ 'time_step' ],
-                                           constraint_table ) ):
+                                           constraint_table, agent ) ):
                 
                 # returns the path since it goes close enough to the goal
                 return get_path( curr )
@@ -453,12 +507,7 @@ def w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight, 
         for dir in range(5):
             child_loc = move(curr['loc'], dir)
 
-            if ( child_loc[ 0 ] < 0 or child_loc[ 0 ] >= len( my_map ) or
-                 child_loc[ 1 ] < 0 or child_loc[ 1 ] >= len( my_map[ 0 ] ) ):
-                # location is not on map
-                continue
-
-            if my_map[child_loc[0]][child_loc[1]]:
+            if is_blocked( child_loc, my_map ):
                 # if new location is not in the map, try another
                 continue
 
@@ -564,8 +613,9 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, search_typ
         #############################
         # Task 1.4: Adjust the goal test condition to handle goal constraints
         if ( curr['loc'] == goal_loc and not 
+            
              check_future_constraints( curr[ 'loc' ], curr[ 'time_step' ], 
-                                       constraint_table ) ):
+                                       constraint_table, agent ) ):
             # returns the path if the goal is found
             return get_path(curr)
         for dir in range(5):

@@ -6,6 +6,7 @@ from visualize import Animation
 from individual import IndivSolver
 from cbs import CBSSolver
 from large_neighbourhood import LargeNeighbourhoodSolver
+from single_agent_planner import print_locations
 
 SOLVER = "IND"
 
@@ -16,24 +17,6 @@ def print_mapf_instance(my_map, starts, pickup, dropoffs):
     print_locations(my_map, [pickup])
     print('dropoff locations')
     print_locations(my_map, dropoffs)
-
-
-
-def print_locations(my_map, locations):
-    starts_map = [[-1 for _ in range(len(my_map[0]))] for _ in range(len(my_map))]
-    for i in range(len(locations)):
-        starts_map[locations[i][0]][locations[i][1]] = i
-    to_print = ''
-    for x in range(len(my_map)):
-        for y in range(len(my_map[0])):
-            if starts_map[x][y] >= 0:
-                to_print += str(starts_map[x][y]) + ' '
-            elif my_map[x][y]:
-                to_print += '@ '
-            else:
-                to_print += '. '
-        to_print += '\n'
-    print(to_print)
 
 
 def import_mapf_instance(filename):
@@ -133,7 +116,7 @@ if __name__ == '__main__':
             solver = IndivSolver( my_map, starts, initial_goals )
         elif args.solver == "CBS":
             print( "***Run CBS***" )
-            solver = CBSSolver( my_map, starts, initial_goals )
+            solver = CBSSolver( my_map, starts, initial_goals, False )
         elif args.solver == "LNS":
             print( "***Run Large Neighbourhood Search***" )
             solver = LargeNeighbourhoodSolver( my_map, starts, initial_goals )
