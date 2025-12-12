@@ -233,7 +233,7 @@ class CBSSolver(ResolvingSolver):
             # clears any collisions that happend after the end of the shortest non-final path
             # these collisions aren't relevant as they'll be recalculated with the next cycle
             for col in collision_list:
-                if col[ "timestep" ] <= shortest_path[1] + 1:
+                if col[ "timestep" ] <= shortest_path[1] + 2:
                     trimmed_collision_list.append( col.copy() )
 
             collision_list = trimmed_collision_list.copy()
