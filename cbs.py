@@ -15,23 +15,9 @@ from resolvingSolver import (
     detect_collisions,
     paths_violate_constraint,
     split_path,
-    extend_path
+    extend_path,
+    find_shortest_non_final_path
 )
-
-def find_shortest_non_final_path( paths, final_goals ):
-    shortest_path_len = None
-    shortest_path = None
-
-    for agent, path in enumerate( paths ):
-        if not final_goals[ agent ]:
-            if shortest_path is None or shortest_path_len > len( path ):
-                shortest_path_len = len( path )
-                shortest_path = agent
-
-    if shortest_path is not None:
-        return ( shortest_path, shortest_path_len )
-    else:
-        return None
 
 SHARED_COLLISION_MULT = 10000
 

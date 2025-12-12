@@ -8,6 +8,21 @@ import time as timer
 
 from mpaf_solver import MAPFSolver
 
+def find_shortest_non_final_path( paths, final_goals ):
+    shortest_path_len = None
+    shortest_path = None
+
+    for agent, path in enumerate( paths ):
+        if not final_goals[ agent ]:
+            if shortest_path is None or shortest_path_len > len( path ):
+                shortest_path_len = len( path )
+                shortest_path = agent
+
+    if shortest_path is not None:
+        return ( shortest_path, shortest_path_len )
+    else:
+        return None
+
 # gets a list of all agents that violate a passed positive constraint
 # not sure this is actually very helpful. might not use it
 def paths_violate_constraint(constraint, paths):
