@@ -131,13 +131,13 @@ def disjoint_splitting(collision):
 class CBSSolver(ResolvingSolver):
     """The high-level search of CBS."""
 
-    def __init__(self, my_map, starts, goals, final):
+    def __init__(self, my_map, starts, goals, final, search_type, weight ):
         """my_map   - list of lists specifying obstacle positions
         starts      - [(x1, y1), (x2, y2), ...] list of start locations
         goals       - [(x1, y1), (x2, y2), ...] list of goal locations
         """
 
-        super().__init__(my_map, starts, goals, final)
+        super().__init__( my_map, starts, goals, final, search_type, weight )
 
     def get_goal( self, agent, node ):
 
@@ -203,7 +203,9 @@ class CBSSolver(ResolvingSolver):
                 self.get_goal(agent, new_node),
                 self.heuristics[agent],
                 agent,
-                new_node[ "constraints" ]
+                new_node[ "constraints" ],
+                search_type=self.search_type,
+                weight=self.weight
             )
                     
             # checks if the path was calculated successfully

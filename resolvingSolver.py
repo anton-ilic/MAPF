@@ -134,7 +134,7 @@ works by generating a set of paths with collisions and then resolving the collis
 requires the abstract function `resolve_collisions` to be defined
 """
 class ResolvingSolver(MAPFSolver):
-    def __init__(self, my_map, starts, goals, final):
+    def __init__(self, my_map, starts, goals, final, search_type, weight):
         """my_map   - list of lists specifying obstacle positions
         starts      - [(x1, y1), (x2, y2), ...] list of start locations
         goals       - [(x1, y1), (x2, y2), ...] list of goal locations
@@ -155,6 +155,9 @@ class ResolvingSolver(MAPFSolver):
         self.heuristics = []
         for goal in self.goals:
             self.heuristics.append(compute_heuristics(my_map, goal))
+
+        self.search_type = search_type
+        self.weight = weight
 
     def calculate_colliding_paths(self):
         """

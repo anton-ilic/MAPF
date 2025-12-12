@@ -82,6 +82,10 @@ if __name__ == '__main__':
                         help='The solver to use (one of: {CBS,Independent,Prioritized}), defaults to ' + str(SOLVER))
     parser.add_argument( '--save', type=bool, default=False,
                          help="whether or not to save the animation. animation will be saved as result.mp4" )
+    parser.add_argument( '--search_type', type=int, default=0,
+                         help="what type of searhc to use, 1 for weighted and 2 for focal" )
+    parser.add_argument( '--weight', type=float, default=1,
+                         help="the weight to use for the weighted A* and focal search" )
 
     args = parser.parse_args()
 
@@ -116,7 +120,8 @@ if __name__ == '__main__':
             solver = IndivSolver( my_map, starts, initial_goals )
         elif args.solver == "CBS":
             print( "***Run CBS***" )
-            solver = CBSSolver( my_map, starts, initial_goals, False )
+            solver = CBSSolver( my_map, starts, initial_goals, False,
+                                args.search_type, args.weight )
         elif args.solver == "LNS":
             print( "***Run Large Neighbourhood Search***" )
             solver = LargeNeighbourhoodSolver( my_map, starts, initial_goals )
