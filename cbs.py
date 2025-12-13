@@ -473,6 +473,10 @@ class CBSSolver(ResolvingSolver):
             # print( f"a1Goal: {agent1goal}, a2Goal: {agent2goal}, collLoc: {collLoc}")
             self.generate_nodes( collision, node )
 
+        # Check if a solution was found
+        if best_node is None:
+            raise RuntimeError(f"No solution found for timestep {timestep}. Error with instance or search algorithm.")
+
         # adds the found paths onto the existing paths
         for i, path in enumerate( best_node[ "paths" ] ):
             self.paths[i] = extend_path( self.paths[i], timestep, path )

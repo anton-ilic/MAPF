@@ -1,4 +1,5 @@
 import heapq
+import itertools
 
 def move(loc, dir):
     # added move that doesn't move ( move( loc, 4 ) )
@@ -311,73 +312,92 @@ def search_closest(my_map, start_loc, goal_loc, h_values, agent, constraints, se
     return path
 
 def focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints, weight=1.5):
-    """ my_map      - binary obstacle map
-        start_loc   - start position
-        goal_loc    - goal position
-        agent       - the agent that is being re-planned
-        constraints - constraints defining where robot should or cannot go at each timestep
-        weight      - weight for focal bound (default 1.5)
+    """A bounded-suboptimal focal search (EPEA* style).
+    OPEN is ordered by f; FOCAL contains nodes with f <= w * f_min and is
+    ordered by secondary heuristic (here, h). Completeness is maintained
+    because we only prune nodes when we have already found a strictly
+    better g-value for the same (loc, timestep) state.
     """
     if weight < 1:
         raise ValueError("Incorrect Weight added, weight should be >= 1")
-    
-    # TODO: currently slow due to rebuilding the heapq. need to imrpove this. 
 
     constraint_table = build_constraint_table(constraints, agent)
 
+    # compute bounds for search depth
     constraint_count = 0
     last_constr_timestep = 0
-    
     for constr_list in constraint_table.values():
         constraint_count += len(constr_list)
         for constr in constr_list:
             if constr["timestep"] > last_constr_timestep:
                 last_constr_timestep = constr["timestep"]
-
     max_steps = max(h_values[start_loc], last_constr_timestep) + constraint_count
 
+    # OPEN ordered by (f, h, time_step, id, node)
     open_list = []
-    closed_list = dict()
-    
+    # Best g-value seen for each state
+    g_score = dict()
+    uid_gen = itertools.count()
+
     h_value = h_values[start_loc]
     root = {
-        'loc': start_loc, 
-        'g_val': 0, 
-        'h_val': h_value, 
-        'parent': None, 
+        'loc': start_loc,
+        'g_val': 0,
+        'h_val': h_value,
+        'parent': None,
         'time_step': 0
     }
+    root_state = (root['loc'], root['time_step'])
+    g_score[root_state] = 0
+    heapq.heappush(open_list, (root['g_val'] + root['h_val'], root['h_val'], root['time_step'], next(uid_gen), root))
 
-    f_val = root['g_val'] + root['h_val']
-    heapq.heappush(open_list, (f_val, root['h_val'], root['loc'], root))
+    while open_list:
+        # Lazy removal of stale nodes so f_min is valid
+        while open_list:
+            f_val, h_val, t_step, uid, node = open_list[0]
+            state = (node['loc'], node['time_step'])
+            if g_score.get(state, float('inf')) < node['g_val']:
+                heapq.heappop(open_list)
+                continue
+            break
+        if not open_list:
+            break
 
-    closed_list[(root['loc'], root['time_step'])] = root
-
-    while len(open_list) > 0:
         f_min = open_list[0][0]
         focal_bound = weight * f_min
 
+        # Build FOCAL with valid nodes inside the bound
         focal_list = []
-        for item in open_list:
-            f_val, h_val, loc, node = item
-            if f_val <= focal_bound:
-                heapq.heappush(focal_list, (h_val, f_val, loc, node))
+        for f_val, h_val, t_step, uid, node in open_list:
+            if f_val > focal_bound:
+                continue
+            state = (node['loc'], node['time_step'])
+            if g_score.get(state, float('inf')) == node['g_val']:
+                heapq.heappush(focal_list, (h_val, f_val, t_step, uid, node))
 
-        if len(focal_list) > 0:
-            _, f_val, _, curr = heapq.heappop(focal_list)
-            
-            new_open_list = []
-            for item in open_list:
-                node = item[3]
-                if node['loc'] == curr['loc'] and node['time_step'] == curr['time_step']:
-                    continue
-                new_open_list.append(item)
-            
-            open_list = new_open_list
-            heapq.heapify(open_list)
+        if focal_list:
+            _, _, _, _, curr = heapq.heappop(focal_list)
         else:
-            _, _, _, curr = heapq.heappop(open_list)
+            # Fallback to best valid node in OPEN
+            while open_list:
+                f_val, h_val, t_step, uid, candidate = heapq.heappop(open_list)
+                state = (candidate['loc'], candidate['time_step'])
+                if g_score.get(state, float('inf')) == candidate['g_val']:
+                    curr = candidate
+                    break
+            else:
+                break
 
+        # Remove the selected curr from OPEN to avoid re-expanding it
+        new_open = []
+        for f_val, h_val, t_step, uid, node in open_list:
+            if node['loc'] == curr['loc'] and node['time_step'] == curr['time_step'] and node['g_val'] == curr['g_val']:
+                continue
+            new_open.append((f_val, h_val, t_step, uid, node))
+        open_list = new_open
+        heapq.heapify(open_list)
+
+        # Goal / depth checks
         if curr['time_step'] > max_steps:
             continue
 
@@ -387,13 +407,11 @@ def focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints, weig
             if not check_future_constraints(curr['loc'], curr['time_step'], constraint_table, agent):
                 return get_path(curr)
 
+        # Expand children
         for dir in range(5):
             child_loc = move(curr['loc'], dir)
 
-            if child_loc[0] < 0 or child_loc[0] >= len(my_map) or child_loc[1] < 0 or child_loc[1] >= len(my_map[0]):
-                continue
-
-            if my_map[child_loc[0]][child_loc[1]]:
+            if is_blocked(child_loc, my_map):
                 continue
 
             if is_constrained(curr['loc'], child_loc, curr['time_step'] + 1, constraint_table, agent):
@@ -402,27 +420,21 @@ def focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints, weig
             if not check_can_make_constraints(child_loc, curr["time_step"] + 1, agent, constraint_table):
                 continue
 
-            child = {
-                'loc': child_loc,
-                'g_val': curr['g_val'] + 1,
-                'h_val': h_values[child_loc],
-                'parent': curr,
-                'time_step': curr['time_step'] + 1
-            }
+            g_child = curr['g_val'] + 1
+            child_state = (child_loc, curr['time_step'] + 1)
 
-            child_f_val = child['g_val'] + child['h_val']
-            child_state = (child['loc'], child['time_step'])
-
-            if child_state in closed_list:
-                existing_node = closed_list[child_state]
-                existing_f_val = existing_node['g_val'] + existing_node['h_val']
-                
-                if child_f_val < existing_f_val:
-                    closed_list[child_state] = child
-                    heapq.heappush(open_list, (child_f_val, child['h_val'], child['loc'], child))
-            else:
-                closed_list[child_state] = child
-                heapq.heappush(open_list, (child_f_val, child['h_val'], child['loc'], child))
+            # Only keep if this is the best g so far for the state
+            if g_child < g_score.get(child_state, float('inf')):
+                child = {
+                    'loc': child_loc,
+                    'g_val': g_child,
+                    'h_val': h_values[child_loc],
+                    'parent': curr,
+                    'time_step': curr['time_step'] + 1
+                }
+                g_score[child_state] = g_child
+                f_child = g_child + child['h_val']
+                heapq.heappush(open_list, (f_child, child['h_val'], child['time_step'], next(uid_gen), child))
 
     return None
 
@@ -558,7 +570,10 @@ def a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, search_typ
             raise ValueError("Weight not defined for weighted a star")
         return w_a_star(my_map, start_loc, goal_loc, h_values, agent, constraints, weight, goalDist)
     elif search_type == 2:
-        return focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints)
+        # Use weight if provided, otherwise default to 1.5
+        if not weight:
+            weight = 1.5
+        return focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints, weight)
     elif search_type != None:
         raise ValueError("Search type not defined ")
     else:
