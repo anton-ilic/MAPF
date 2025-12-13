@@ -331,7 +331,8 @@ def focal_search(my_map, start_loc, goal_loc, h_values, agent, constraints, weig
         for constr in constr_list:
             if constr["timestep"] > last_constr_timestep:
                 last_constr_timestep = constr["timestep"]
-    max_steps = max(h_values[start_loc], last_constr_timestep) + constraint_count
+
+    max_steps = (max(h_values[start_loc], last_constr_timestep) + constraint_count) * 5
 
     # OPEN ordered by (f, h, time_step, id, node)
     open_list = []
