@@ -9,7 +9,7 @@ import time as timer
 from mpaf_solver import MAPFSolver
 
 # finds the first occurance of the specified goal after the passed timestep
-def find_first_goal( path, goal, timestep ):
+def find_first_goal( path, goal, timestep=0 ):
     for step, loc in enumerate( path ):
         if loc == goal and step >= timestep:
             return step
