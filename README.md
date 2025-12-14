@@ -2,7 +2,13 @@
 
 Multiple agents deliver items to destination bins, reverse of Amazon Warehouse case. 
 
-# Quick Start
+## Requirements
+- Python 3.11 or higher
+- matplotlib
+- numpy
+- pillow (for saving animations)
+
+## Quick Start
 
 Run an instance with the default CBS solver:
 
