@@ -10,7 +10,8 @@ from resolvingSolver import (
     ResolvingSolver,
     detect_collisions,
     split_path,
-    extend_path
+    extend_path,
+    find_shortest_non_final_path
 )
 
 def get_remaining_agents( num_of_agents, neighbourhood ):
@@ -25,7 +26,7 @@ def get_remaining_agents( num_of_agents, neighbourhood ):
 
     return remaining_agents
 
-def get_constraints_for_path( path, agent ):
+def get_constraints_for_path( path, agent, final_goal ):
 
     constraints = []
 
@@ -40,8 +41,18 @@ def get_constraints_for_path( path, agent ):
 
         # checks if this is the last location in the path
         if timestep == len(path) - 1:
-            # marks this as a goal constraint
-            constraints[-1]['goal'] = True
+            # print( 'adding final constraint' )
+            if final_goal:
+                # marks this as a goal constraint if this is the agents final goal
+                constraints[-1]['goal'] = True
+            else:
+                # otherwise, just assumes this agent will stay here for another timestep then move
+                # Vertex constraint: no agent can be at this location at this time
+                constraints.append({
+                    'agent': agent,
+                    'loc': [location],
+                    'timestep': timestep + 1,
+                })
                 
         # Edge constraint: prevent swapping positions
         if timestep > 0:
@@ -58,13 +69,13 @@ def get_constraints_for_path( path, agent ):
 class LargeNeighbourhoodSolver(ResolvingSolver):
     """The high-level search of CBS."""
 
-    def __init__(self, my_map, starts, goals):
+    def __init__(self, my_map, starts, goals, final, search_type, weight):
         """my_map   - list of lists specifying obstacle positions
         starts      - [(x1, y1), (x2, y2), ...] list of start locations
         goals       - [(x1, y1), (x2, y2), ...] list of goal locations
         """
 
-        super().__init__(my_map, starts, goals)
+        super().__init__(my_map, starts, goals, final, search_type, weight)
 
 
     def find_neighbourhood( self, collisions, neighbour_count ):
@@ -83,8 +94,10 @@ class LargeNeighbourhoodSolver(ResolvingSolver):
                 if agent not in agents_in_collisions:
                     agents_in_collisions.append( agent )
 
+        # print( f"agents in collisions: {agents_in_collisions}" )
+
         # randomly selects one agent involved in a collision to start the neighbourhood
-        path_agent = random.randint( 0, len( agents_in_collisions ) - 1)
+        path_agent = random.choice( agents_in_collisions )
         neighbourhood = [ path_agent ]
         checked_agents = []
 
@@ -97,12 +110,15 @@ class LargeNeighbourhoodSolver(ResolvingSolver):
                     # trys to find a another agent in the neighbourhood to check the paths of
                     # to expand the neighbourhood
                     path_agent = agent
+
+                    # print( f"checking agent {path_agent}" )
                     break
 
             if path_agent is None:
                 # no suitable agents found in current neighbourhood, select random agent from remaining agents
                 remaining_agents = get_remaining_agents( self.num_of_agents, neighbourhood )
                 path_agent = random.choice( remaining_agents )
+                # print( f"randomly adding agent {path_agent}" )
                 neighbourhood.append( path_agent )
 
             for col in collisions:
@@ -121,6 +137,8 @@ class LargeNeighbourhoodSolver(ResolvingSolver):
             checked_agents.append( path_agent )
 
         random.shuffle( neighbourhood )
+
+        # print( f"selected neightbourhood: {neighbourhood}" )
 
         # returns the found neighbourhood
         return neighbourhood
@@ -148,16 +166,26 @@ class LargeNeighbourhoodSolver(ResolvingSolver):
         remaining_agents = get_remaining_agents( self.num_of_agents, neighbourhood )
 
         static_paths = []
+        static_finals = []
+        static_goals = []
 
         # finds all the static paths by non-neighbourhood agents that must be avoided
         for agent in remaining_agents:
             static_paths.append( split_path( self.paths[agent], timestep ) )
+            static_finals.append( self.final_goals[ agent ] )
+            static_goals.append( self.goals[ agent ] )
         
-        # calculate window limit for constraints
-        window_timestep = self.find_shortest_non_final_path()
+        # calculate window limit for constraints (shortest path not in neighbourhood)
+        window_timestep = find_shortest_non_final_path( static_paths, static_finals, static_goals )
         window_limit = None
         if window_timestep is not None:
-            window_limit = window_timestep + 1 - timestep  # Adjust for split path offset
+            window_limit = window_timestep[1] + 3  # Adjust for split path offset
+
+        # print( f"shortest timestep for recalculation: {window_limit}")
+
+        # print( "before recalcuation:" )
+        # for agent, path in relevantPaths.items():
+            # print( f"{agent}:{path}")
 
         # Store old paths in case we need to revert
         old_paths = {agent: self.paths[agent].copy() for agent in neighbourhood}
@@ -177,7 +205,7 @@ class LargeNeighbourhoodSolver(ResolvingSolver):
 
             for path in static_paths:
                 # adds the constraints for each static path
-                path_constraints = get_constraints_for_path( path, agent )
+                path_constraints = get_constraints_for_path( path, agent, self.final_goals[ agent ] )
                 # filter constraints by window if applicable
                 if window_limit is not None:
                     path_constraints = [c for c in path_constraints if c['timestep'] < window_limit]
@@ -185,43 +213,39 @@ class LargeNeighbourhoodSolver(ResolvingSolver):
 
             for prev_agent in planned_agents:
                 # adds the constraints for each previous path
-                path_constraints = get_constraints_for_path( relevantPaths[ prev_agent ], agent )
+                path_constraints = get_constraints_for_path( relevantPaths[ prev_agent ], agent, self.final_goals[ agent ] )
                 # filter constraints by window if applicable
                 if window_limit is not None:
                     path_constraints = [c for c in path_constraints if c['timestep'] < window_limit]
+
+                # print( f"converted path {relevantPaths[ prev_agent ]} into \n{path_constraints}" )
                 constraints.extend( path_constraints )
 
-            if self.is_marked_for_updates( agent ):
-                # calculates a new path that goes close to the goal but doesn't arrive at it
-                new_path = search_closest(
-                    self.my_map,
-                    new_starts[agent],
-                    self.goals[agent],
-                    self.heuristics[agent],
-                    agent,
-                    constraints,
-                    goalDist=self.nonarriveDist
-                )
-            else:
-                # calculates a new path directly to the goal
-                new_path = a_star(
-                    self.my_map,
-                    new_starts[agent],
-                    self.goals[agent],
-                    self.heuristics[agent],
-                    agent,
-                    constraints
-                )
+            # calculates a new path directly to the goal
+            new_path = a_star(
+                self.my_map,
+                new_starts[agent],
+                self.goals[agent],
+                self.heuristics[agent],
+                agent,
+                constraints,
+                self.search_type,
+                self.weight
+            )
 
             if new_path is None:
                 # Failed to find a path for this agent
                 success = False
+
+                print( f"failed to replan agent {agent} from {new_starts[agent]} to {self.goals[agent]}")
+
+                # print( f"had constraints: {constraints}")
                 break
 
             # stores the new path
             relevantPaths[agent] = new_path.copy()
 
-            print( f"replanned for agent {agent} with path {new_path}")
+            # print( f"replanned for agent {agent} with path {new_path}")
 
             # marks this agent as having completed its path calculations
             planned_agents.append( agent )
@@ -231,6 +255,10 @@ class LargeNeighbourhoodSolver(ResolvingSolver):
             for agent in neighbourhood:
                 self.paths[agent] = extend_path( self.paths[agent], timestep, relevantPaths[agent] )
             print(f"Successfully replanned neighbourhood: {neighbourhood}")
+
+            # print( "after recalcuation:" )
+            # for agent, path in relevantPaths.items():
+                # print( f"{agent}:{path}")
         else:
             # Revert to old paths
             for agent in neighbourhood:
@@ -275,32 +303,38 @@ class LargeNeighbourhoodSolver(ResolvingSolver):
         """
 
         # checks for and marks shared goal agents
-        self.handle_shared_goals()
+        # self.handle_shared_goals()
+
+        print( f"recalculating for timestep {timestep}")
 
         # finds some set of collisions
         collisions = detect_collisions( self.paths )
-        
-        # apply windowed approach: filter collisions after shortest non-final path + 1
-        window_timestep = self.find_shortest_non_final_path()
-        if window_timestep is not None:
-            # filter out collisions that occur after the window
-            window_limit = window_timestep + 1
-            collisions = [col for col in collisions if col['timestep'] < window_limit]
+
+        # finds the new shortest non-final path
+        window_timestep = find_shortest_non_final_path( self.paths, self.final_goals, self.goals, timestep=timestep )
         
         # loops until no collisions left in the list
         while collisions != []:
             
             # finds a subset of agents to recalcuate paths for
             # identifiying the neighbourhood
-            neighbourhood = self.find_neighbourhood( collisions, 3 )
+            neighbourhood = self.find_neighbourhood( collisions, 6 )
 
             self.recalculate_paths_for_neighbourhood( neighbourhood, collisions, timestep )
 
             # rechecks for collisions
             collisions = detect_collisions( self.paths )
-            
-            # re-apply windowed approach after recalculation
-            window_timestep = self.find_shortest_non_final_path()
+
+            print( f"{len(collisions)} collisions remaiming")
+
+            print( f"remaining collisions: {collisions}" )
+
+            # finds the new shortest non-final path
+            window_timestep = find_shortest_non_final_path( self.paths, self.final_goals, self.goals, timestep=timestep )
+
             if window_timestep is not None:
-                window_limit = window_timestep + 1
+                # filter out collisions that occur after the window
+                window_limit = window_timestep[1] + 2
                 collisions = [col for col in collisions if col['timestep'] < window_limit]
+
+        print( f"next calculation: {window_timestep}" )

@@ -8,19 +8,20 @@ import time as timer
 
 from mpaf_solver import MAPFSolver
 
-def find_first_goal( path, goal ):
+# finds the first occurance of the specified goal after the passed timestep
+def find_first_goal( path, goal, timestep ):
     for step, loc in enumerate( path ):
-        if loc == goal:
+        if loc == goal and step >= timestep:
             return step
     return len(path)
 
-def find_shortest_non_final_path( paths, final_goals, goals ):
+def find_shortest_non_final_path( paths, final_goals, goals, timestep=0 ):
     shortest_path_len = None
     shortest_path = None
 
     for agent, path in enumerate( paths ):
         if not final_goals[ agent ]:
-            path_len = find_first_goal( path, goals[ agent ] )
+            path_len = find_first_goal( path, goals[ agent ], timestep )
             if shortest_path is None or shortest_path_len > path_len:
                 shortest_path_len = path_len
                 shortest_path = agent
@@ -29,7 +30,7 @@ def find_shortest_non_final_path( paths, final_goals, goals ):
         return ( shortest_path, shortest_path_len )
     else:
         return None
-
+    
 # gets a list of all agents that violate a passed positive constraint
 # not sure this is actually very helpful. might not use it
 def paths_violate_constraint(constraint, paths):
@@ -223,23 +224,6 @@ class ResolvingSolver(MAPFSolver):
 
     def is_marked_for_updates( self, agent ):
         return agent in self.pending_agents
-    
-    def find_shortest_non_final_path(self):
-        """
-        Finds the length of the shortest path among agents that are marked as non-goal/pending.
-        Returns the timestep of the shortest non-final path, or None if no agents are pending.
-        """
-        if not self.pending_agents:
-            return None
-        
-        shortest_length = float('inf')
-        for agent in self.pending_agents:
-            if agent < len(self.paths):
-                path_length = len(self.paths[agent])
-                if path_length < shortest_length:
-                    shortest_length = path_length
-        
-        return shortest_length if shortest_length != float('inf') else None
     
     # calculates conflicting paths for all plending agents
     def get_paths_for_pending_agents( self, timestep ):

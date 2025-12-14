@@ -9,7 +9,7 @@ Colors = ['green', 'blue', 'orange']
 
 # run duration in seconds
 DURATION = 600
-ESTIMATE_DURATION = True
+ESTIMATE_DURATION = False
 
 
 class Animation:
